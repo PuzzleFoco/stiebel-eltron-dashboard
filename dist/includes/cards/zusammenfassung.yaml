@@ -179,7 +179,7 @@ content: |
   <details>
   <summary>Anlagen erkannt, aber keine Karte sichtbar?</summary>
 
-  - **`custom:auto-entities` installiert?** HACS → Frontend → „Auto Entities“ installieren, danach Home Assistant neu starten. Ohne diese Karte fehlen Geräte- und Bedienkarten; nur dieser Kopf bleibt sichtbar.
+  - **`custom:auto-entities` installiert?** HACS → Dashboard → Suche `auto-entities` → Herunterladen, danach Seite neu laden. Ohne diese Karte fehlen Geräte- und Bedienkarten; nur dieser Kopf bleibt sichtbar.
   - **Gerät gelabelt?** Einstellungen → Geräte & Dienste → Geräte → Gerät öffnen → Label `stiebel_eltron` setzen.
   - **Geräte-Registry geändert?** Nach dem Anlegen oder Umbenennen eines Geräts die Seite neu laden (Lovelace liest das Geräteregister beim Rendern).
 

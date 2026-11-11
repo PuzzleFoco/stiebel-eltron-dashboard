@@ -152,6 +152,7 @@ Genau diese drei Punkte prüft dieses Repository automatisiert:
 | HA-Code | `scripts/check_ha_parse.py` | parst `dashboards/` und `dist/` mit `homeassistant.util.yaml.load_yaml_dict` (derselbe Aufruf wie `LovelaceYAML._load_config`) und validiert das README-Snippet gegen `lovelace.CONFIG_SCHEMA` |
 | Workflows | actionlint (gepinnt) | Syntax/Ausdrücke der GitHub-Workflows |
 | HACS | `hacs/action` Kategorie `plugin` | dieselbe Prüfung wie beim Hinzufügen in HACS |
+| Doku | `scripts/validate.py` | README-Schlüssel `stiebel-eltron`, HACS-Installpfad, ausgelieferte Zieldatei, Konsistenz der Kartenlinks |
 | YAML-Stil | yamllint | Einrückung, Tabs, Länge, `truthy` |
 
 Nachgewiesen am Gerüst: HA 2026.2.3 parst `dashboards/stiebel_eltron.yaml` und
@@ -215,6 +216,10 @@ Prüfkette in CI:
 `validate.py` prüft auto-entities-Regelnamen gegen die Liste aus deren Quellcode:
 Ein Tippfehler macht den Filter dort **still** wirkungslos (`RULES[rule] ?? () => false`),
 deshalb ist das ein harter Fehler und keine Warnung.
+
+Das durchgeführte Abnahmeprotokoll liegt in `docs/acceptance.md`: 23 Prüfpunkte mit Umgebung,
+Evidenz und sechs offenen Punkten inklusive Reproduktionsschritten (öffentliches Repository,
+Geräte-Label, Live-Werte, zweite Anlage, Neustart-Persistenz, Usability-Ziel).
 
 ## Abgrenzung / offene Punkte
 

@@ -4,6 +4,32 @@ Alle nennenswerten Änderungen an diesem Repository.
 Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.2.1] - 2026-11-11
+
+### Hinzugefügt
+
+- **Vollständige Installationsanleitung** in der README: Voraussetzungen, HACS-Ablauf
+  (benutzerdefiniertes Repository → Kategorie **Dashboard** → Download), Registrierung als
+  YAML-Dashboard, Geräte-Label, Erklärung der Entity-Präfix-Konvention (Suffix statt Präfix),
+  Anleitung für eine zweite Anlage, Screenshot-/GIF-Platzhalter, Update/Deinstallation und
+  ein Troubleshooting-Abschnitt mit 15 typischen Fehlern.
+- **`docs/acceptance.md`**: durchgeführtes Abnahmeprotokoll (23 Prüfpunkte) mit Umgebung,
+  Evidenz, Grenzen und sechs offenen Issues inklusive Reproduktionsschritten.
+- `scripts/validate.py` prüft jetzt die README-Installationsanleitung gegen die ausgelieferten
+  Dateien: Dashboard-Schlüssel `stiebel-eltron`, HACS-Installpfad, vorhandene Zieldatei,
+  `includes/` im Payload und Konsistenz der Kartenlinks.
+
+### Geändert
+
+- Hinweis in der Zusammenfassungskarte nennt die aktuelle HACS-Kategorie **Dashboard** und den
+  Suchbegriff `auto-entities` (vorher „Frontend“/„Auto Entities“).
+
+### Behoben
+
+- Die README erklärte den Dashboard-Schlüssel nur als „muss einen Bindestrich enthalten“.
+  Tatsächlich muss er `stiebel-eltron` heißen, weil die Karten fest auf
+  `/stiebel-eltron/…` verlinken; ein anderer Schlüssel erzeugte 404er.
+
 ## [0.2.0] - 2026-11-11
 
 ### Hinzugefügt

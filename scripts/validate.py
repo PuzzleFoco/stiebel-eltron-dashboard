@@ -11,6 +11,8 @@ Prüft alles, was ohne laufende Home-Assistant-Instanz prüfbar ist:
    und Karten (inkl. auto-entities-Filterregeln).
 4. dist/ ist byte-genau synchron zu dashboards/.
 5. Pflichtdateien für ein HACS-Repository sind vorhanden.
+6. Die README-Installationsanleitung passt zu den ausgelieferten Dateien:
+   Dashboard-Schlüssel (URL-Pfad der Kartenlinks), HACS-Installpfad und Datei.
 
 Die Include-Auflösung ist der wichtige Teil: Ohne sie sieht der Prüfer an
 `views:` nur Strings und kann die eigentliche Struktur nicht beurteilen.
@@ -33,6 +35,13 @@ ROOT = Path(__file__).resolve().parent.parent
 HACS_JSON = ROOT / "hacs.json"
 DASHBOARD_SOURCE_DIR = ROOT / "dashboards"
 DIST_DIR = ROOT / "dist"
+
+# Namenskopplung (docs/architecture.md §Namenskopplung): HACS installiert nach
+# www/community/<repository-name>/. Der Name steht im Installationspfad der
+# README und ist deshalb nicht frei wählbar.
+HACS_REPOSITORY_NAME = "stiebel-eltron-dashboard"
+# URL-Pfad des Dashboards; die Karten verlinken fest auf /stiebel-eltron/…
+README_DASHBOARD_KEY = "stiebel-eltron"
 
 # Schlüssel aus HACS_MANIFEST_JSON_SCHEMA (custom_components/hacs/utils/validate.py,
 # extra=vol.PREVENT_EXTRA). Unbekannte Schlüssel lehnt HACS ab.
@@ -443,6 +452,84 @@ def check_yaml_parses(path: Path) -> None:
     print(f"OK: {label} (Syntax)")
 
 
+def check_readme_install() -> None:
+    """README-Installationsanleitung gegen die ausgelieferten Dateien prüfen.
+
+    Die Anleitung ist Teil des Produkts: Ein falscher Pfad, ein anderer
+    Dashboard-Schlüssel oder ein nicht ausgeliefertes Include-Verzeichnis macht
+    die Installation für neue Nutzer unmöglich, ohne dass YAML-Prüfungen
+    anschlagen. Geprüft wird deshalb:
+
+    * genau ein `lovelace:`-Block mit genau einem Dashboard,
+    * der Schlüssel `stiebel-eltron` (die Karten verlinken fest darauf),
+    * `mode: yaml` und ein `filename` unter `www/community/<repo>/`,
+    * die genannte Datei existiert in `dist/` (wird von HACS ausgeliefert),
+    * die Karten verlinken auf keinen anderen Dashboard-Pfad,
+    * Label und Pflicht-Abhängigkeit kommen in der Anleitung vor.
+    """
+    if not (ROOT / "README.md").is_file():
+        fail("README.md fehlt")
+        return
+
+    before = len(errors)
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"```ya?ml\n(.*?)```", text, flags=re.DOTALL)
+    snippet = next((block for block in blocks if block.lstrip().startswith("lovelace:")), None)
+    if snippet is None:
+        fail("README.md: kein ```yaml-Block mit 'lovelace:' gefunden")
+        return
+
+    try:
+        data = yaml.safe_load(snippet) or {}
+    except yaml.YAMLError as exception:
+        fail(f"README.md: lovelace-Snippet ist kein gültiges YAML: {exception}")
+        return
+
+    dashboards = ((data.get("lovelace") or {}).get("dashboards")) or {}
+    if not isinstance(dashboards, dict) or len(dashboards) != 1:
+        fail("README.md: lovelace.dashboards muss genau einen Eintrag enthalten")
+        return
+    key, config = next(iter(dashboards.items()))
+    config = config or {}
+
+    if key != README_DASHBOARD_KEY:
+        fail(
+            f"README.md: Dashboard-Schlüssel ist {key!r}, die Karten verlinken aber fest auf "
+            f"/{README_DASHBOARD_KEY}/…"
+        )
+    if config.get("mode") != "yaml":
+        fail("README.md: Dashboard-Eintrag braucht 'mode: yaml'")
+
+    filename = config.get("filename")
+    prefix = f"www/community/{HACS_REPOSITORY_NAME}/"
+    if not isinstance(filename, str) or not filename.startswith(prefix):
+        fail(
+            f"README.md: 'filename' muss mit {prefix!r} beginnen "
+            f"(HACS installiert nach www/community/<repository-name>/), ist: {filename!r}"
+        )
+    else:
+        target = DIST_DIR / filename[len(prefix) :]
+        if not target.is_file():
+            fail(f"README.md: {filename!r} zeigt auf keine ausgelieferte Datei (dist/{target.name})")
+        if not (DIST_DIR / "includes").is_dir():
+            fail("dist/includes fehlt – die !includes des Dashboards würden nicht mitinstalliert")
+
+    linked = set()
+    for source in DASHBOARD_SOURCE_DIR.rglob("*.yaml"):
+        linked.update(re.findall(r"\]\((/[a-z0-9-]+)/", source.read_text(encoding="utf-8")))
+    foreign = sorted(linked - {f"/{README_DASHBOARD_KEY}"})
+    if foreign:
+        fail(f"Dashboard-YAML verlinkt auf {foreign}, README-Schlüssel ist /{README_DASHBOARD_KEY}")
+
+    if "stiebel_eltron" not in text:
+        fail("README.md: Geräte-Label 'stiebel_eltron' wird nicht erklärt")
+    if "auto-entities" not in text:
+        fail("README.md: Pflicht-Abhängigkeit 'auto-entities' wird nicht genannt")
+
+    if len(errors) == before:
+        print(f"OK: README.md (Schlüssel {key!r}, Pfad {filename!r}, Links konsistent)")
+
+
 def check_required_files() -> None:
     """Dateien, die ein HACS-Repository braucht."""
     for name in ("README.md", "LICENSE", "CHANGELOG.md"):
@@ -464,6 +551,7 @@ def main() -> int:
             check_yaml_parses(source)
 
     check_dist_sync()
+    check_readme_install()
     check_required_files()
 
     for message in warnings:
