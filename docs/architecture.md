@@ -185,11 +185,41 @@ versionieren lassen:
 Bis diese Punkte gesetzt sind, schlägt der Job `hacs` im Workflow `Validate`
 erwartungsgemäß fehl (Checks `description`, `topics`, `images`).
 
+## Dashboard-Aufbau und Prüfkette (ab v0.2.0)
+
+Das Dashboard ist in kleine, per `!include` geladene Dateien aufgeteilt; HACS
+liefert `dashboards/` byte-genau als `dist/` aus (auch Unterordner):
+
+```
+dashboards/stiebel_eltron.yaml      Root: title + drei Views
+dashboards/includes/views/*.yaml    je eine View (nur !include)
+dashboards/includes/cards/*.yaml    Karten + auto-entities-Vorlagen
+dashboards/templates/jinja/*.j2     kanonische Makros (nicht in dist/)
+```
+
+Die Makros (Resolver, Status, Discovery, Funktionskatalog) stehen **einmal** unter
+`templates/jinja/` und werden von `scripts/sync_jinja.py` in die Karten kopiert
+(Marker `{# @@SYNC:…@@ #}` … `{# @@END@@ #}`). `--check` schlägt in CI fehl, wenn
+Karte und Quelle auseinanderlaufen — damit gibt es keine stillen Kopien.
+
+Prüfkette in CI:
+
+| Schritt | Werkzeug | Prüft |
+|---|---|---|
+| Makro-Sync | `sync_jinja.py --check` | Kartenblock == `templates/jinja/*.j2` |
+| Struktur | `validate.py` | `!include` aufgelöst, Views/Sections/Karten, auto-entities-Regeln, dist-Sync |
+| Stil | `yamllint` | Einrückung, Tabs, Duplikate |
+| HA-Loader | `check_ha_parse.py` | echtes HA parst Root und dist |
+| Abnahme | `render_test.py` | zwei simulierte Anlagen, Degradation, Filtertreffer |
+
+`validate.py` prüft auto-entities-Regelnamen gegen die Liste aus deren Quellcode:
+Ein Tippfehler macht den Filter dort **still** wirkungslos (`RULES[rule] ?? () => false`),
+deshalb ist das ein harter Fehler und keine Warnung.
+
 ## Abgrenzung / offene Punkte
 
-- Dashboard-Inhalt, Mehrgeräte-Erkennung und Entity-Konventionen sind **nicht**
-  Teil dieses Gerüsts (siehe [design.md](design.md)).
-- Kein HACS-Default-Repository: dafür ist ein PR im Store-Repository nötig und
-  erst sinnvoll, wenn das Dashboard Inhalt hat.
 - Screenshot für README/HACS-Store fehlt bewusst noch (kein Fake-Bild); wird
   nach der ersten echten Dashboard-Version ergänzt.
+- Kein HACS-Default-Repository: dafür ist ein PR im Store-Repository nötig.
+- Ein echter Test gegen eine zweite physische Anlage steht aus; die Mechanik ist
+  über `scripts/render_test.py` (zwei Geräte, zwei Präfixe) abgedeckt.

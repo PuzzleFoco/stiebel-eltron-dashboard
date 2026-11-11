@@ -1,0 +1,26 @@
+type: custom:auto-entities
+card:
+  type: grid
+  columns: 2
+  square: false
+card_param: cards
+unique: entity
+show_empty: false
+filter:
+  include:
+    - domain: select
+      entity_id: '/_(programmschalter|betriebsart|operation_mode)(_[0-9]+)?$/'
+      or:
+        - label: stiebel_eltron
+        - integration: stiebel_eltron_isg
+      options:
+        type: tile
+        features:
+          - type: select-options
+            style: dropdown
+  exclude:
+    - integration: stiebel_eltron_http
+else:
+  type: markdown
+  content: |
+    _Keine schaltbare Betriebsart gefunden._ Bei einer rein lesenden Anbindung (HTTP) lässt sich die Betriebsart nur am Gerät bzw. in der Servicewelt ändern; bei ESPHome/ISG fehlt die Entität `*_programmschalter` bzw. `*_betriebsart`.

@@ -1,0 +1,79 @@
+{#- Discovery — Quelle: templates/jinja/discovery.j2 (sync_jinja.py).
+    Label → Stiebel-Integration → Signatur ≥ 3 (ESPHome) → Fallback über alle Geräte.
+    Setzt ns.n_devs, ns.n_cards, ns.n_nocard, ns.n_noanchor, ns.rows, ns.nocards, ns.noanchor.
+    Details: docs/design.md §3.
+-#}
+{%- set ns = namespace(devs=[], label=[], integ=[]) -%}
+{%- set anchor_suffixes = ['aussentemp', 'aussentemperatur', 'outside_temperature'] -%}
+{%- set sig = ['aussentemp', 'aussentemperatur', 'outdoor_temperature',
+               'vorlaufisttemp_wp', 'speicheristtemp', 'programmschalter', 'verdichter'] -%}
+
+{#- 1. Explizites Label am Gerät: vertrauen, ohne Signaturprüfung. -#}
+{%- set label_devs = label_devices('stiebel_eltron') -%}
+{%- for d in label_devs -%}
+  {%- if d and d not in ns.devs -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+{%- endfor -%}
+{%- set ns.label = label_devs -%}
+
+{#- 2. Stiebel-Integrationen: Geräte vertrauen (auch ein LWZ mit nur einer climate-Entität). -#}
+{%- for dom in ['stiebel_eltron_isg', 'stiebel_eltron_http', 'stiebel_eltron'] -%}
+  {%- for e in integration_entities(dom) -%}
+    {%- set d = device_id(e) -%}
+    {%- if d -%}
+      {%- if dom in ['stiebel_eltron_isg', 'stiebel_eltron_http'] and d not in ns.integ -%}
+        {%- set ns.integ = ns.integ + [d] -%}
+      {%- endif -%}
+      {%- if d not in ns.devs -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+{#- 3./4. Kandidaten der Signaturprüfung: erst ESPHome, im Leerfall alle Geräte. -#}
+{%- set cand = namespace(ids=[]) -%}
+{%- for e in integration_entities('esphome') -%}
+  {%- set d = device_id(e) -%}
+  {%- if d and d not in cand.ids -%}{%- set cand.ids = cand.ids + [d] -%}{%- endif -%}
+{%- endfor -%}
+{%- if ns.devs | count == 0 -%}
+  {%- for s in states -%}
+    {%- set d = device_id(s.entity_id) -%}
+    {%- if d and d not in cand.ids -%}{%- set cand.ids = cand.ids + [d] -%}{%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+{%- for d in cand.ids -%}
+  {%- if d not in ns.devs -%}
+    {%- set hits = namespace(l=[]) -%}
+    {%- for e in device_entities(d) | sort -%}
+      {%- for x in sig -%}
+        {%- if e.endswith('_' ~ x) and x not in hits.l -%}{%- set hits.l = hits.l + [x] -%}{%- endif -%}
+      {%- endfor -%}
+    {%- endfor -%}
+    {%- if hits.l | count >= 3 -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{#- Anzeigeliste: Name, Bereich, Anker, Kartenfähigkeit. -#}
+{%- set lst = namespace(rows=[], nocards=[], noanchor=[]) -%}
+{%- for d in ns.devs -%}
+  {%- set ents = device_entities(d) | sort -%}
+  {%- set sens = ents | select('match', '^sensor\\.') | list -%}
+  {%- set anchor = pick(sens, anchor_suffixes) | trim -%}
+  {%- set nm = device_attr(d, 'name_by_user') or device_attr(d, 'name') or d -%}
+  {%- set area = (area_name(anchor) if anchor else (area_name(ents[0]) if ents else none)) or '—' -%}
+  {%- set carded = (d in ns.label) or (d in ns.integ) -%}
+  {%- set lst.rows = lst.rows + [{'name': nm, 'area': area, 'anchor': anchor, 'carded': carded}] -%}
+  {%- if anchor -%}
+    {%- if not carded -%}{%- set lst.nocards = lst.nocards + [nm] -%}{%- endif -%}
+  {%- else -%}
+    {%- set lst.noanchor = lst.noanchor + [nm] -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- set ns.rows = lst.rows | sort(attribute='name') -%}
+{%- set ns.nocards = lst.nocards -%}
+{%- set ns.noanchor = lst.noanchor -%}
+{%- set ns.n_devs = lst.rows | count -%}
+{%- set ns.n_nocard = lst.nocards | count -%}
+{%- set ns.n_noanchor = lst.noanchor | count -%}
+{%- set ns.n_anchor = ns.n_devs - ns.n_noanchor -%}
+{%- set ns.n_cards = ns.n_anchor - ns.n_nocard -%}

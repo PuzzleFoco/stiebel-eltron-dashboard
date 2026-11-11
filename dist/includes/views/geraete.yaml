@@ -1,0 +1,13 @@
+title: Geräte
+path: geraete
+icon: mdi:heat-pump-outline
+type: sections
+max_columns: 1
+sections:
+  - type: grid
+    cards:
+      - type: heading
+        heading: Alle Anlagen
+        heading_style: title
+        icon: mdi:format-list-bulleted
+      - !include ../cards/geraete_liste.yaml

@@ -1,0 +1,11 @@
+type: markdown
+content: |
+  ## Bedienung
+
+  ⚠️ **Schreibzugriffe gehen direkt an die Anlage.** Es gibt keine Bestätigungsstufe und keine Automatik in diesem Dashboard — jede Änderung ist eine bewusste Tap-/Slider-Aktion.
+
+  - **ISG / Modbus:** Schreiben über Holding-Register mit Bereichsprüfung und Gerätebestätigung.
+  - **ESPHome / CAN:** Schreiben ist `optimistic` — Home Assistant zeigt den gesendeten Wert, auch wenn das Gerät ihn nicht übernimmt. Nach dem Ändern den Ist-Wert der Anlage prüfen.
+  - **Nur lesende Anbindung (HTTP):** keine schreibbaren Entitäten; die Gruppen unten zeigen dann einen Hinweis.
+
+  Bewusst **nicht** enthalten: Zeitprogramme (nicht als Entität vorhanden), Störungs-Quittierung (nur Servicewelt), Frostschutz-/Sicherheitsparameter.

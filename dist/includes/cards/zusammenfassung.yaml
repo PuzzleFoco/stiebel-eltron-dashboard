@@ -1,0 +1,189 @@
+type: markdown
+content: |
+  {# @@SYNC:templates/jinja/resolver.j2@@ #}
+  {#- Entity-Resolver — Quelle: templates/jinja/resolver.j2 (sync_jinja.py).
+      Vertrag: docs/design.md §4. `ents` = domain-vorgefilterte entity_ids, Suffixe in
+      Prioritätsreihenfolge, exakter Suffix (plus `_2`/`_3`), fehlend/unavailable → „—“.
+  -#}
+
+  {#- Suffix-Treffer inkl. HA-Duplikatsuffix (_2, _3 …) nach dem Funktionsnamen. -#}
+  {%- macro suffix_hit(cand, s) -%}
+    {%- set tail = cand.split('.')[-1] -%}
+    {%- if tail == s or tail.endswith('_' ~ s) -%}1
+    {%- elif ('_' ~ s ~ '_') in tail and ((tail.split('_' ~ s ~ '_')[-1]) | int(-1)) >= 0 -%}1
+    {%- endif -%}
+  {%- endmacro -%}
+
+  {#- Erste Entität, deren Objekt-ID auf einen der Suffixe endet. Leerstring, wenn keine. -#}
+  {%- macro pick(ents, suffixes) -%}
+    {%- set ns = namespace(e='') -%}
+    {%- for s in suffixes -%}
+      {%- if not ns.e -%}
+        {%- for cand in ents -%}
+          {%- if not ns.e and s in cand and suffix_hit(cand, s) | trim -%}
+            {%- set ns.e = cand -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{- ns.e -}}
+  {%- endmacro -%}
+
+  {#- "1", wenn eine passende Entität existiert — für `{% if has(...) | trim %}`. -#}
+  {%- macro has(ents, suffixes) -%}
+    {%- if pick(ents, suffixes) | trim -%}1{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Rohzustand oder „—“; `unavailable`, `unknown` und leer werden zu „—“ (nicht 0). -#}
+  {%- macro val_e(e) -%}
+    {%- if e and has_value(e) -%}{{ states(e) }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {%- macro val(ents, suffixes) -%}{{- val_e(pick(ents, suffixes) | trim) -}}{%- endmacro -%}
+
+  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung. -#}
+  {%- macro num_e(e, prec=1, unit=none) -%}
+    {%- if e and has_value(e) -%}
+      {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
+      {%- if prec > 0 -%}
+        {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
+        {{- (('%.' ~ prec ~ 'f') | format(states(e) | float(0))) | replace('.', ',') -}}
+      {%- else -%}
+        {{- (states(e) | float(0)) | round(0) | int -}}
+      {%- endif -%}
+      {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
+    {%- else -%}
+      {{- '—' -}}
+    {%- endif -%}
+  {%- endmacro -%}
+
+  {%- macro num(ents, suffixes, prec=1, unit=none) -%}
+    {{- num_e(pick(ents, suffixes) | trim, prec, unit) -}}
+  {%- endmacro -%}
+
+  {#- Ganzzahl ohne Dezimalkomma (Starts, Laufzeiten, Fehlernummer). -#}
+  {%- macro ints(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e and has_value(e) -%}{{ states(e) | int(0) }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Binärwert als ja/nein/—. -#}
+  {%- macro bin(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e and has_value(e) -%}{{ 'ja' if is_state(e, 'on') else 'nein' }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Einheit der gefundenen Entität (leer, wenn keine) — für Hinweise/Einheitenprüfung. -#}
+  {%- macro unit_of(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e -%}{{ state_attr(e, 'unit_of_measurement') or '' }}{%- endif -%}
+  {%- endmacro -%}
+  {# @@END@@ #}
+  {# @@SYNC:templates/jinja/discovery.j2@@ #}
+  {#- Discovery — Quelle: templates/jinja/discovery.j2 (sync_jinja.py).
+      Label → Stiebel-Integration → Signatur ≥ 3 (ESPHome) → Fallback über alle Geräte.
+      Setzt ns.n_devs, ns.n_cards, ns.n_nocard, ns.n_noanchor, ns.rows, ns.nocards, ns.noanchor.
+      Details: docs/design.md §3.
+  -#}
+  {%- set ns = namespace(devs=[], label=[], integ=[]) -%}
+  {%- set anchor_suffixes = ['aussentemp', 'aussentemperatur', 'outside_temperature'] -%}
+  {%- set sig = ['aussentemp', 'aussentemperatur', 'outdoor_temperature',
+                 'vorlaufisttemp_wp', 'speicheristtemp', 'programmschalter', 'verdichter'] -%}
+
+  {#- 1. Explizites Label am Gerät: vertrauen, ohne Signaturprüfung. -#}
+  {%- set label_devs = label_devices('stiebel_eltron') -%}
+  {%- for d in label_devs -%}
+    {%- if d and d not in ns.devs -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+  {%- endfor -%}
+  {%- set ns.label = label_devs -%}
+
+  {#- 2. Stiebel-Integrationen: Geräte vertrauen (auch ein LWZ mit nur einer climate-Entität). -#}
+  {%- for dom in ['stiebel_eltron_isg', 'stiebel_eltron_http', 'stiebel_eltron'] -%}
+    {%- for e in integration_entities(dom) -%}
+      {%- set d = device_id(e) -%}
+      {%- if d -%}
+        {%- if dom in ['stiebel_eltron_isg', 'stiebel_eltron_http'] and d not in ns.integ -%}
+          {%- set ns.integ = ns.integ + [d] -%}
+        {%- endif -%}
+        {%- if d not in ns.devs -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endfor -%}
+
+  {#- 3./4. Kandidaten der Signaturprüfung: erst ESPHome, im Leerfall alle Geräte. -#}
+  {%- set cand = namespace(ids=[]) -%}
+  {%- for e in integration_entities('esphome') -%}
+    {%- set d = device_id(e) -%}
+    {%- if d and d not in cand.ids -%}{%- set cand.ids = cand.ids + [d] -%}{%- endif -%}
+  {%- endfor -%}
+  {%- if ns.devs | count == 0 -%}
+    {%- for s in states -%}
+      {%- set d = device_id(s.entity_id) -%}
+      {%- if d and d not in cand.ids -%}{%- set cand.ids = cand.ids + [d] -%}{%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
+  {%- for d in cand.ids -%}
+    {%- if d not in ns.devs -%}
+      {%- set hits = namespace(l=[]) -%}
+      {%- for e in device_entities(d) | sort -%}
+        {%- for x in sig -%}
+          {%- if e.endswith('_' ~ x) and x not in hits.l -%}{%- set hits.l = hits.l + [x] -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {%- if hits.l | count >= 3 -%}{%- set ns.devs = ns.devs + [d] -%}{%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+
+  {#- Anzeigeliste: Name, Bereich, Anker, Kartenfähigkeit. -#}
+  {%- set lst = namespace(rows=[], nocards=[], noanchor=[]) -%}
+  {%- for d in ns.devs -%}
+    {%- set ents = device_entities(d) | sort -%}
+    {%- set sens = ents | select('match', '^sensor\\.') | list -%}
+    {%- set anchor = pick(sens, anchor_suffixes) | trim -%}
+    {%- set nm = device_attr(d, 'name_by_user') or device_attr(d, 'name') or d -%}
+    {%- set area = (area_name(anchor) if anchor else (area_name(ents[0]) if ents else none)) or '—' -%}
+    {%- set carded = (d in ns.label) or (d in ns.integ) -%}
+    {%- set lst.rows = lst.rows + [{'name': nm, 'area': area, 'anchor': anchor, 'carded': carded}] -%}
+    {%- if anchor -%}
+      {%- if not carded -%}{%- set lst.nocards = lst.nocards + [nm] -%}{%- endif -%}
+    {%- else -%}
+      {%- set lst.noanchor = lst.noanchor + [nm] -%}
+    {%- endif -%}
+  {%- endfor -%}
+
+  {%- set ns.rows = lst.rows | sort(attribute='name') -%}
+  {%- set ns.nocards = lst.nocards -%}
+  {%- set ns.noanchor = lst.noanchor -%}
+  {%- set ns.n_devs = lst.rows | count -%}
+  {%- set ns.n_nocard = lst.nocards | count -%}
+  {%- set ns.n_noanchor = lst.noanchor | count -%}
+  {%- set ns.n_anchor = ns.n_devs - ns.n_noanchor -%}
+  {%- set ns.n_cards = ns.n_anchor - ns.n_nocard -%}
+  {# @@END@@ #}
+  ## Stiebel Eltron
+
+  {% if ns.n_devs > 0 %}
+  **{{ ns.n_devs }} {{ 'Anlage' if ns.n_devs == 1 else 'Anlagen' }}** erkannt · {{ ns.n_cards }} {{ 'Karte' if ns.n_cards == 1 else 'Karten' }} · {{ ns.n_anchor }} mit Außentemperatur-Anker
+
+  🟢 Bereit · 🔵 Verdichter läuft · 🟡 EVU-Sperre · 🔴 Störung · ⚪ Keine Daten
+
+  {% if ns.n_nocard > 0 %}
+  > ⚠️ **{{ ns.n_nocard }} Anlage(n) ohne Karte:** {{ ns.nocards | join(', ') }}. Es fehlt das Geräte-Label `stiebel_eltron` (Einstellungen → Geräte & Dienste → Geräte → Label). Ohne Label greifen nur die Integrationsfilter (ISG/HTTP); ESPHome-Geräte brauchen es.
+  {% endif %}
+  {% if ns.n_noanchor > 0 %}
+  > ℹ️ **Ohne Anker:** {{ ns.noanchor | join(', ') }} — keine `*_aussentemp`, `*_aussentemperatur` oder `*_outside_temperature`-Entität gefunden. Diese Anlagen werden nicht als Karte angezeigt.
+  {% endif %}
+
+  [Alle Geräte →](/stiebel-eltron/geraete) · [Bedienung →](/stiebel-eltron/bedienung)
+
+  <details>
+  <summary>Anlagen erkannt, aber keine Karte sichtbar?</summary>
+
+  - **`custom:auto-entities` installiert?** HACS → Frontend → „Auto Entities“ installieren, danach Home Assistant neu starten. Ohne diese Karte fehlen Geräte- und Bedienkarten; nur dieser Kopf bleibt sichtbar.
+  - **Gerät gelabelt?** Einstellungen → Geräte & Dienste → Geräte → Gerät öffnen → Label `stiebel_eltron` setzen.
+  - **Geräte-Registry geändert?** Nach dem Anlegen oder Umbenennen eines Geräts die Seite neu laden (Lovelace liest das Geräteregister beim Rendern).
+
+  </details>
+  {% else %}
+  _Noch keine Wärmepumpe erkannt — die Einrichtungshilfe steht in der Karte darunter._
+  {% endif %}

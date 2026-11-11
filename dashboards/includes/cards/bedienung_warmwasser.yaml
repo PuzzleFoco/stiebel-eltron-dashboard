@@ -1,0 +1,26 @@
+type: custom:auto-entities
+card:
+  type: grid
+  columns: 2
+  square: false
+card_param: cards
+unique: entity
+show_empty: false
+filter:
+  include:
+    - domain: number
+      entity_id: '/_(einstell_speichersolltemp|tagbetrieb_warmwasser_temperatursoll|comfort_water_temperature_target|ww_eco_temp|absenkbetrieb_warmwasser_temperatursoll|eco_water_temperature_target)(_[0-9]+)?$/'
+      or:
+        - label: stiebel_eltron
+        - integration: stiebel_eltron_isg
+      options:
+        type: tile
+        features:
+          - type: numeric-input
+            style: buttons
+  exclude:
+    - integration: stiebel_eltron_http
+else:
+  type: markdown
+  content: |
+    _Keine Warmwasser-Sollwerte gefunden._ Diese Gruppe braucht `number`-Entitäten wie `*_einstell_speichersolltemp` (ISO) bzw. `*_tagbetrieb_warmwasser_temperatursoll` (ISG). Eine rein lesende Anbindung (HTTP) bietet sie nicht.

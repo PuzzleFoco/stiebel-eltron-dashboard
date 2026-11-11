@@ -1,0 +1,77 @@
+{#- Entity-Resolver — Quelle: templates/jinja/resolver.j2 (sync_jinja.py).
+    Vertrag: docs/design.md §4. `ents` = domain-vorgefilterte entity_ids, Suffixe in
+    Prioritätsreihenfolge, exakter Suffix (plus `_2`/`_3`), fehlend/unavailable → „—“.
+-#}
+
+{#- Suffix-Treffer inkl. HA-Duplikatsuffix (_2, _3 …) nach dem Funktionsnamen. -#}
+{%- macro suffix_hit(cand, s) -%}
+  {%- set tail = cand.split('.')[-1] -%}
+  {%- if tail == s or tail.endswith('_' ~ s) -%}1
+  {%- elif ('_' ~ s ~ '_') in tail and ((tail.split('_' ~ s ~ '_')[-1]) | int(-1)) >= 0 -%}1
+  {%- endif -%}
+{%- endmacro -%}
+
+{#- Erste Entität, deren Objekt-ID auf einen der Suffixe endet. Leerstring, wenn keine. -#}
+{%- macro pick(ents, suffixes) -%}
+  {%- set ns = namespace(e='') -%}
+  {%- for s in suffixes -%}
+    {%- if not ns.e -%}
+      {%- for cand in ents -%}
+        {%- if not ns.e and s in cand and suffix_hit(cand, s) | trim -%}
+          {%- set ns.e = cand -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{- ns.e -}}
+{%- endmacro -%}
+
+{#- "1", wenn eine passende Entität existiert — für `{% if has(...) | trim %}`. -#}
+{%- macro has(ents, suffixes) -%}
+  {%- if pick(ents, suffixes) | trim -%}1{%- endif -%}
+{%- endmacro -%}
+
+{#- Rohzustand oder „—“; `unavailable`, `unknown` und leer werden zu „—“ (nicht 0). -#}
+{%- macro val_e(e) -%}
+  {%- if e and has_value(e) -%}{{ states(e) }}{%- else -%}—{%- endif -%}
+{%- endmacro -%}
+
+{%- macro val(ents, suffixes) -%}{{- val_e(pick(ents, suffixes) | trim) -}}{%- endmacro -%}
+
+{#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung. -#}
+{%- macro num_e(e, prec=1, unit=none) -%}
+  {%- if e and has_value(e) -%}
+    {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
+    {%- if prec > 0 -%}
+      {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
+      {{- (('%.' ~ prec ~ 'f') | format(states(e) | float(0))) | replace('.', ',') -}}
+    {%- else -%}
+      {{- (states(e) | float(0)) | round(0) | int -}}
+    {%- endif -%}
+    {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
+  {%- else -%}
+    {{- '—' -}}
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro num(ents, suffixes, prec=1, unit=none) -%}
+  {{- num_e(pick(ents, suffixes) | trim, prec, unit) -}}
+{%- endmacro -%}
+
+{#- Ganzzahl ohne Dezimalkomma (Starts, Laufzeiten, Fehlernummer). -#}
+{%- macro ints(ents, suffixes) -%}
+  {%- set e = pick(ents, suffixes) | trim -%}
+  {%- if e and has_value(e) -%}{{ states(e) | int(0) }}{%- else -%}—{%- endif -%}
+{%- endmacro -%}
+
+{#- Binärwert als ja/nein/—. -#}
+{%- macro bin(ents, suffixes) -%}
+  {%- set e = pick(ents, suffixes) | trim -%}
+  {%- if e and has_value(e) -%}{{ 'ja' if is_state(e, 'on') else 'nein' }}{%- else -%}—{%- endif -%}
+{%- endmacro -%}
+
+{#- Einheit der gefundenen Entität (leer, wenn keine) — für Hinweise/Einheitenprüfung. -#}
+{%- macro unit_of(ents, suffixes) -%}
+  {%- set e = pick(ents, suffixes) | trim -%}
+  {%- if e -%}{{ state_attr(e, 'unit_of_measurement') or '' }}{%- endif -%}
+{%- endmacro -%}

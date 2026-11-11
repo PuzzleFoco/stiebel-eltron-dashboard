@@ -9,7 +9,9 @@ ignore: |
 
 rules:
   line-length:
-    max: 120
+    # Markdown-Tabellenzeilen und Jinja-Aufrufe in den Karten sind nicht
+    # umbrechbar; 120 Zeichen sind für `dashboards/includes/cards/` zu eng.
+    max: 300
     allow-non-breakable-words: true
   truthy:
     allowed-values: ["true", "false"]

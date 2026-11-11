@@ -56,6 +56,13 @@ def check_dashboard(path: Path) -> None:
     if not isinstance(views, list) or not views:
         errors.append(f"{label}: 'views' fehlt oder ist leer")
         return
+    for index, view in enumerate(views):
+        if not isinstance(view, dict):
+            errors.append(f"{label}: views[{index}] ist kein Mapping (!include nicht aufgelöst?)")
+            return
+        if not view.get("sections") and not view.get("cards"):
+            errors.append(f"{label}: views[{index}] hat weder 'sections' noch 'cards'")
+            return
 
     print(f"OK: {label} – HA {HA_VERSION} parst title={config.get('title')!r}, {len(views)} View(s)")
 

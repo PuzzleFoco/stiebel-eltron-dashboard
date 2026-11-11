@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Offline-Validierung des HACS-Repository-Gerüsts.
+"""Offline-Validierung des Dashboard-Repositories.
 
 Prüft alles, was ohne laufende Home-Assistant-Instanz prüfbar ist:
 
 1. hacs.json gegen das HACS-Manifest-Schema (unbekannte Schlüssel sind Fehler).
 2. HACS-Strukturanforderung "Dashboard/plugin": die in hacs.json genannte
    .js-Datei liegt in dist/.
-3. Dashboard-YAML: YAML-parsebar, Root-Mapping, views-Liste mit Einträgen,
-   jede View hat title oder path, cards ist eine Liste.
+3. Dashboard-YAML: `!include` wird wie in Home Assistant relativ zur
+   includierenden Datei aufgelöst; danach Strukturprüfung von Views, Sections
+   und Karten (inkl. auto-entities-Filterregeln).
 4. dist/ ist byte-genau synchron zu dashboards/.
 5. Pflichtdateien für ein HACS-Repository sind vorhanden.
+
+Die Include-Auflösung ist der wichtige Teil: Ohne sie sieht der Prüfer an
+`views:` nur Strings und kann die eigentliche Struktur nicht beurteilen.
 
 Aufruf:
     python scripts/validate.py
@@ -47,6 +51,40 @@ HACS_JSON_SCHEMA: dict[str, type | tuple[type, ...]] = {
 
 VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}(b\d+)?$")
 
+# Filterregeln aus auto-entities (README + src/filter.ts). Ein unbekannter
+# Regelname ist dort kein Fehler, sondern macht den Filter still wirkungslos
+# (`RULES[rule] ?? (() => false)`) — deshalb prüfen wir ihn hier hart.
+AUTO_ENTITIES_RULES = {
+    "domain",
+    "state",
+    "state_translated",
+    "entity_id",
+    "name",
+    "group",
+    "area",
+    "floor",
+    "level",
+    "device",
+    "label",
+    "device_manufacturer",
+    "device_model",
+    "integration",
+    "hidden_by",
+    "attributes",
+    "last_changed",
+    "last_updated",
+    "last_triggered",
+    "entity_category",
+    "not",
+    "or",
+    "and",
+}
+AUTO_ENTITIES_SPECIAL = {"type", "options", "sort"}
+# Karten, die ihre Kinder unter `cards:` führen.
+CARD_CONTAINERS = {"grid", "horizontal-stack", "vertical-stack"}
+
+MAX_INCLUDE_DEPTH = 20
+
 errors: list[str] = []
 warnings: list[str] = []
 
@@ -62,7 +100,12 @@ def warn(message: str) -> None:
 
 
 class HADashboardLoader(yaml.SafeLoader):
-    """SafeLoader mit Home-Assistant-Tags und Duplikat-Erkennung."""
+    """SafeLoader mit HA-Tags, Duplikat-Erkennung und echter !include-Auflösung."""
+
+    def __init__(self, stream: Any, path: Path, depth: int = 0) -> None:
+        super().__init__(stream)
+        self._path = path
+        self._depth = depth
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
         self.flatten_mapping(node)
@@ -80,15 +123,48 @@ class HADashboardLoader(yaml.SafeLoader):
         return mapping
 
 
+def _construct_include(loader: HADashboardLoader, node: yaml.Node) -> Any:
+    """!include wie Home Assistant: Pfad relativ zur includierenden Datei."""
+    if not isinstance(node, yaml.ScalarNode):
+        raise yaml.constructor.ConstructorError(
+            "while constructing !include",
+            node.start_mark,
+            "!include erwartet einen Dateinamen (String)",
+            node.start_mark,
+        )
+    if loader._depth >= MAX_INCLUDE_DEPTH:
+        raise yaml.constructor.ConstructorError(
+            "while constructing !include",
+            node.start_mark,
+            "zu viele verschachtelte Includes (Zyklus?)",
+            node.start_mark,
+        )
+
+    target = (loader._path.parent / node.value).resolve()
+    if not target.is_file():
+        raise yaml.constructor.ConstructorError(
+            "while constructing !include",
+            node.start_mark,
+            f"Datei nicht gefunden: {node.value} (erwartet: {target})",
+            node.start_mark,
+        )
+    with target.open(encoding="utf-8") as handle:
+        nested = HADashboardLoader(handle, target, loader._depth + 1)
+        try:
+            return nested.get_single_data()
+        finally:
+            nested.dispose()
+
+
 def _stub_tag(loader: HADashboardLoader, node: yaml.Node) -> str:
-    """HA-Tags (!include, !secret, ...) beim Prüfen nur markieren."""
+    """Nicht genutzte HA-Tags beim Prüfen nur markieren."""
     if isinstance(node, yaml.ScalarNode):
         return f"<{node.tag}:{node.value}>"
     return f"<{node.tag}>"
 
 
+HADashboardLoader.add_constructor("!include", _construct_include)
 for _tag in (
-    "!include",
     "!include_dir_list",
     "!include_dir_named",
     "!include_dir_merge_list",
@@ -98,6 +174,16 @@ for _tag in (
     "!input",
 ):
     HADashboardLoader.add_constructor(_tag, _stub_tag)
+
+
+def load_yaml(path: Path) -> Any:
+    """YAML mit Include-Auflösung laden."""
+    with path.open(encoding="utf-8") as handle:
+        loader = HADashboardLoader(handle, path)
+        try:
+            return loader.get_single_data()
+        finally:
+            loader.dispose()
 
 
 def check_hacs_json() -> dict[str, Any]:
@@ -160,18 +246,141 @@ def check_hacs_structure(data: dict[str, Any]) -> None:
     elif not (base / entry).is_file():
         fail(f"HACS-Struktur: {base.relative_to(ROOT)}/{entry} fehlt (Kategorie Dashboard braucht die .js-Datei)")
 
-    js_files = sorted(base.glob("*.js"))
-    if not js_files:
+    if not sorted(base.glob("*.js")):
         fail(f"HACS-Struktur: keine .js-Datei in {base.relative_to(ROOT)}/")
 
 
+def check_auto_entities(card: dict[str, Any], where: str) -> None:
+    """Filter einer custom:auto-entities-Karte prüfen."""
+    filters = card.get("filter")
+    if not isinstance(filters, dict):
+        fail(f"{where}: custom:auto-entities braucht 'filter' (Mapping)")
+        return
+
+    if not isinstance(card.get("card"), dict) or not card["card"].get("type"):
+        fail(f"{where}: custom:auto-entities braucht 'card' mit 'type' (Zielkarte)")
+
+    if "card_param" in card and not isinstance(card["card_param"], str):
+        fail(f"{where}: 'card_param' muss ein String sein")
+
+    else_card = card.get("else")
+    if else_card is not None:
+        check_card(else_card, f"{where}.else")
+
+    for section in ("include", "exclude"):
+        rules = filters.get(section)
+        if rules is None:
+            continue
+        if not isinstance(rules, list):
+            fail(f"{where}: filter.{section} muss eine Liste sein")
+            continue
+        for index, rule in enumerate(rules):
+            if not isinstance(rule, dict):
+                fail(f"{where}: filter.{section}[{index}] muss ein Mapping sein")
+                continue
+            effective = 0
+            for key, value in rule.items():
+                name = str(key).strip().split(" ")[0].strip()
+                if name in AUTO_ENTITIES_SPECIAL:
+                    if name == "options":
+                        if not isinstance(value, dict):
+                            fail(f"{where}: filter.{section}[{index}].options muss ein Mapping sein")
+                        else:
+                            check_card(value, f"{where}.options")
+                    continue
+                if name not in AUTO_ENTITIES_RULES:
+                    fail(
+                        f"{where}: filter.{section}[{index}]: unbekannte auto-entities-Regel "
+                        f"{key!r} — auto-entities ignoriert den Filter dann still"
+                    )
+                    continue
+                effective += 1
+            if section == "include" and effective == 0:
+                fail(f"{where}: filter.include[{index}] hat keine wirksame Regel (nur options/type)")
+
+
+def check_card(card: Any, where: str) -> None:
+    """Eine Lovelace-Karte strukturell prüfen."""
+    if not isinstance(card, dict):
+        fail(f"{where}: Karte muss ein Mapping sein")
+        return
+
+    card_type = card.get("type")
+    if not isinstance(card_type, str) or not card_type:
+        fail(f"{where}: Karte braucht 'type'")
+        return
+
+    if card_type == "custom:auto-entities":
+        check_auto_entities(card, where)
+        return
+
+    if card_type in CARD_CONTAINERS:
+        cards = card.get("cards")
+        if not isinstance(cards, list) or not cards:
+            fail(f"{where}: {card_type}-Karte braucht eine nicht-leere 'cards'-Liste")
+            return
+        for index, child in enumerate(cards):
+            check_card(child, f"{where}.cards[{index}]")
+
+    if "features" in card:
+        features = card["features"]
+        if not isinstance(features, list) or not features:
+            fail(f"{where}: 'features' muss eine nicht-leere Liste sein")
+        else:
+            for index, feature in enumerate(features):
+                if not isinstance(feature, dict) or not feature.get("type"):
+                    fail(f"{where}: features[{index}] braucht 'type'")
+
+    if card_type == "heading" and not card.get("heading"):
+        fail(f"{where}: heading-Karte braucht 'heading'")
+
+
+def check_view(view: Any, where: str) -> None:
+    """Eine View prüfen (sections-View oder klassische Karten-View)."""
+    if not isinstance(view, dict):
+        fail(f"{where} muss ein Mapping sein (prüfe !include-Auflösung)")
+        return
+    if not view.get("title") and not view.get("path"):
+        fail(f"{where} braucht 'title' oder 'path'")
+    if "path" in view and not isinstance(view["path"], str):
+        fail(f"{where}: 'path' muss ein String sein")
+
+    if view.get("type") == "sections":
+        sections = view.get("sections")
+        if not isinstance(sections, list) or not sections:
+            fail(f"{where}: sections-View braucht eine nicht-leere 'sections'-Liste")
+            return
+        for s_index, section in enumerate(sections):
+            s_where = f"{where}.sections[{s_index}]"
+            if not isinstance(section, dict):
+                fail(f"{s_where} muss ein Mapping sein")
+                continue
+            cards = section.get("cards")
+            if not isinstance(cards, list) or not cards:
+                fail(f"{s_where}: Section braucht eine nicht-leere 'cards'-Liste")
+                continue
+            for c_index, card in enumerate(cards):
+                check_card(card, f"{s_where}.cards[{c_index}]")
+        return
+
+    cards = view.get("cards")
+    if not isinstance(cards, list) or not cards:
+        fail(f"{where}: 'cards' muss eine nicht-leere Liste sein")
+        return
+    for index, card in enumerate(cards):
+        check_card(card, f"{where}.cards[{index}]")
+
+
 def check_dashboard_yaml(path: Path) -> None:
-    """Struktur einer Lovelace-Dashboard-YAML prüfen."""
+    """Struktur einer Lovelace-Dashboard-YAML prüfen (inkl. Includes)."""
     label = path.relative_to(ROOT)
     try:
-        config = yaml.load(path.read_text(encoding="utf-8"), Loader=HADashboardLoader)
+        config = load_yaml(path)
     except yaml.YAMLError as exception:
         fail(f"{label}: YAML nicht parsebar: {exception}")
+        return
+    except OSError as exception:
+        fail(f"{label}: Include nicht lesbar: {exception}")
         return
 
     if not isinstance(config, dict):
@@ -188,24 +397,9 @@ def check_dashboard_yaml(path: Path) -> None:
         return
 
     for index, view in enumerate(views):
-        where = f"{label}: views[{index}]"
-        if not isinstance(view, dict):
-            fail(f"{where} muss ein Mapping sein")
-            continue
-        if not view.get("title") and not view.get("path"):
-            fail(f"{where} braucht 'title' oder 'path'")
-        if "path" in view and not isinstance(view["path"], str):
-            fail(f"{where}: 'path' muss ein String sein")
-        if "cards" in view:
-            cards = view["cards"]
-            if not isinstance(cards, list):
-                fail(f"{where}: 'cards' muss eine Liste sein")
-            elif not all(isinstance(card, dict) for card in cards):
-                fail(f"{where}: jede Karte muss ein Mapping sein")
-            elif any(not card.get("type") for card in cards):
-                fail(f"{where}: jede Karte braucht 'type'")
+        check_view(view, f"{label}: views[{index}]")
 
-    print(f"OK: {label} ({len(views)} View(s))")
+    print(f"OK: {label} ({len(views)} View(s), Includes aufgelöst)")
 
 
 def check_dist_sync() -> None:
@@ -239,9 +433,12 @@ def check_yaml_parses(path: Path) -> None:
     """Nur Syntax prüfen (für Bruchstücke/Includes, die kein Dashboard sind)."""
     label = path.relative_to(ROOT)
     try:
-        yaml.load(path.read_text(encoding="utf-8"), Loader=HADashboardLoader)
+        load_yaml(path)
     except yaml.YAMLError as exception:
         fail(f"{label}: YAML nicht parsebar: {exception}")
+        return
+    except OSError as exception:
+        fail(f"{label}: Include nicht lesbar: {exception}")
         return
     print(f"OK: {label} (Syntax)")
 
@@ -264,7 +461,6 @@ def main() -> int:
         if source.parent == DASHBOARD_SOURCE_DIR:
             check_dashboard_yaml(source)
         else:
-            # Bruchstücke für !include & Co.: nur Syntax prüfen
             check_yaml_parses(source)
 
     check_dist_sync()
@@ -279,7 +475,7 @@ def main() -> int:
         print(f"\n{len(errors)} Fehler – Repository ist so nicht HACS-konform.")
         return 1
 
-    print("\nOK: Repository-Gerüst ist HACS-konform.")
+    print("\nOK: Repository ist HACS-konform, Dashboard-Struktur ist gültig.")
     return 0
 
 

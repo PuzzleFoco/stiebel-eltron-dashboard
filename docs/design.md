@@ -1175,5 +1175,57 @@ Karten ist `cards: !include karten.yaml`; dann steht die Liste direkt in `cards`
 
 ---
 
-*Ende des Designs. Die Implementierung folgt in t_093e7b2e; Abweichungen von diesem Dokument
-gehören als Änderung hierher, nicht als stiller Sonderfall in die YAML.*
+## 15. Implementierungsnotizen (v0.2.0)
+
+Diese Abweichungen vom Design sind bewusst und im Code umgesetzt. Sie gehören
+hierher, nicht als stiller Sonderfall in die YAML.
+
+1. **`this.entity_id` muss in Jinja in Anführungszeichen stehen.** auto-entities
+   ersetzt den Text `this.entity_id` per `JSON.stringify(...).replace(...)`
+   (`src/process_entity.ts`). Aus `device_id(this.entity_id)` wird damit
+   `device_id(sensor.x)` — ein Jinja-Syntaxfehler. Richtig ist
+   `device_id('this.entity_id')`; nach der Ersetzung steht dort ein String-Literal.
+   Das Design-Beispiel §8.5 war an dieser Stelle nicht lauffähig.
+2. **Resolver nimmt domain-vorgefilterte Entity-Listen** statt `dev`:
+   `pick(sens, F.ww_ist)` mit `sens = device_entities(dev) | select('match','^sensor\\.')`.
+   Grund: pro Detailkarte werden ~40 Funktionen aufgelöst; ein Lookup je Aufruf
+   wäre unnötig teuer. Der Funktionskatalog liegt als vierte Datei
+   `templates/jinja/functions.j2` (ein `F`-Dict) vor, damit Übersicht und
+   Detailkarte dieselben Kandidaten nutzen.
+3. **Duplikatsuffix `_2`/`_3` wird toleriert.** HA hängt ihn bei einem zweiten
+   Config Entry an die Entity-ID (`…_aussentemperatur_2`). Eine reine
+   `endswith('_aussentemperatur')`-Prüfung und der Glob `*_aussentemperatur`
+   würden die zweite Anlage übersehen. Der Resolver akzeptiert
+   `_<funktion>_<zahl>`, die auto-entities-Filter nutzen dafür einen Regex
+   (`'/_(…)(_[0-9]+)?$/'`).
+4. **Ein Regex-Filter statt neun Glob-Filter.** Drei Namensvarianten × drei
+   Quellen (Label/ISG/HTTP) wären neun Include-Einträge je Liste; die
+   `or:`-Regel von auto-entities plus ein Regex deckt dasselbe ab und bleibt
+   lesbar.
+5. **`stiebel_anker`-Label ist nicht aktiv.** Es ist im Design als Option für
+   Geräte ohne Außentemperatur-Entität vorgesehen (§8.5). Ohne zusätzliche
+   Logik würde ein gelabelter Anker bei einem Gerät mit Außentemperatur eine
+   **zweite** Karte erzeugen. v0.2.0 nutzt deshalb nur Suffix-Anker und nennt
+   Geräte ohne Anker in der Zusammenfassung.
+6. **Die Zusammenfassung nennt Anlagen ohne Karte.** Ein per Signatur erkanntes
+   Gerät ohne Label bekommt keine Karte (die ESPHome-Filter brauchen das Label).
+   Statt es still fehlen zu lassen, zählt und benennt die Übersicht diese Geräte
+   und nennt den nächsten Schritt.
+7. **Kein `gauge`, keine Diagramme.** Die Karten bleiben bei `markdown`, `tile`,
+   `grid`, `heading` und `sections`; nur `auto-entities` ist Pflicht-HACS.
+8. **Mindestversion bleibt 2024.10.** `max_columns` gibt es seit 2024.4, die
+   `heading`-Karte seit 2024.10, `select-options`/`numeric-input` seit 2024.10.
+9. **Energie und COP** wie in §4.4: Rohwerte mit Geräte-Einheit, kein COP aus
+   Wärmemengenzählern. Eine von der Anlage selbst gelieferte 24-h-Effizienz
+   erscheint nur im eingeklappten Diagnoseblock und ist als „Anlagenangabe“
+   gekennzeichnet.
+
+Verifikation (siehe `scripts/render_test.py`, 65 Prüfungen): zwei Anlagen mit
+unterschiedlichen Präfixen ergeben zwei Karten mit getrennten Werten; fehlende
+Werte werden „—“; ein `unavailable`-Gateway ergibt ⚪/„Keine Daten“; die Lüftung
+wird nicht als Wärmepumpe erkannt; eine HTTP-Anlage bekommt Karten, aber keine
+Bedien-Tiles. Zusätzlich wurde der Discovery-/Resolver-Block live gegen eine
+HA-2026.11-Instanz gerendert (`sensor.heatingpump_aussentemp` → 5,1 °C,
+`…_vorlaufisttemp_wp` → 29,8 °C, Modus „Komfort“).
+
+*Ende des Designs.*

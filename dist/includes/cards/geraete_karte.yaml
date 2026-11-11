@@ -1,0 +1,294 @@
+type: markdown
+content: |
+  {# @@SYNC:templates/jinja/resolver.j2@@ #}
+  {#- Entity-Resolver — Quelle: templates/jinja/resolver.j2 (sync_jinja.py).
+      Vertrag: docs/design.md §4. `ents` = domain-vorgefilterte entity_ids, Suffixe in
+      Prioritätsreihenfolge, exakter Suffix (plus `_2`/`_3`), fehlend/unavailable → „—“.
+  -#}
+
+  {#- Suffix-Treffer inkl. HA-Duplikatsuffix (_2, _3 …) nach dem Funktionsnamen. -#}
+  {%- macro suffix_hit(cand, s) -%}
+    {%- set tail = cand.split('.')[-1] -%}
+    {%- if tail == s or tail.endswith('_' ~ s) -%}1
+    {%- elif ('_' ~ s ~ '_') in tail and ((tail.split('_' ~ s ~ '_')[-1]) | int(-1)) >= 0 -%}1
+    {%- endif -%}
+  {%- endmacro -%}
+
+  {#- Erste Entität, deren Objekt-ID auf einen der Suffixe endet. Leerstring, wenn keine. -#}
+  {%- macro pick(ents, suffixes) -%}
+    {%- set ns = namespace(e='') -%}
+    {%- for s in suffixes -%}
+      {%- if not ns.e -%}
+        {%- for cand in ents -%}
+          {%- if not ns.e and s in cand and suffix_hit(cand, s) | trim -%}
+            {%- set ns.e = cand -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+    {%- endfor -%}
+    {{- ns.e -}}
+  {%- endmacro -%}
+
+  {#- "1", wenn eine passende Entität existiert — für `{% if has(...) | trim %}`. -#}
+  {%- macro has(ents, suffixes) -%}
+    {%- if pick(ents, suffixes) | trim -%}1{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Rohzustand oder „—“; `unavailable`, `unknown` und leer werden zu „—“ (nicht 0). -#}
+  {%- macro val_e(e) -%}
+    {%- if e and has_value(e) -%}{{ states(e) }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {%- macro val(ents, suffixes) -%}{{- val_e(pick(ents, suffixes) | trim) -}}{%- endmacro -%}
+
+  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung. -#}
+  {%- macro num_e(e, prec=1, unit=none) -%}
+    {%- if e and has_value(e) -%}
+      {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
+      {%- if prec > 0 -%}
+        {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
+        {{- (('%.' ~ prec ~ 'f') | format(states(e) | float(0))) | replace('.', ',') -}}
+      {%- else -%}
+        {{- (states(e) | float(0)) | round(0) | int -}}
+      {%- endif -%}
+      {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
+    {%- else -%}
+      {{- '—' -}}
+    {%- endif -%}
+  {%- endmacro -%}
+
+  {%- macro num(ents, suffixes, prec=1, unit=none) -%}
+    {{- num_e(pick(ents, suffixes) | trim, prec, unit) -}}
+  {%- endmacro -%}
+
+  {#- Ganzzahl ohne Dezimalkomma (Starts, Laufzeiten, Fehlernummer). -#}
+  {%- macro ints(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e and has_value(e) -%}{{ states(e) | int(0) }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Binärwert als ja/nein/—. -#}
+  {%- macro bin(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e and has_value(e) -%}{{ 'ja' if is_state(e, 'on') else 'nein' }}{%- else -%}—{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Einheit der gefundenen Entität (leer, wenn keine) — für Hinweise/Einheitenprüfung. -#}
+  {%- macro unit_of(ents, suffixes) -%}
+    {%- set e = pick(ents, suffixes) | trim -%}
+    {%- if e -%}{{ state_attr(e, 'unit_of_measurement') or '' }}{%- endif -%}
+  {%- endmacro -%}
+  {# @@END@@ #}
+  {# @@SYNC:templates/jinja/status.j2@@ #}
+  {#-
+    Status-Ampel — kanonische Quelle: templates/jinja/status.j2
+    Wird von scripts/sync_jinja.py in die Karten kopiert. Nicht in den Karten ändern.
+    Setzt die Makros aus resolver.j2 voraus (pick, has_value, is_state).
+  -#}
+
+  {#- Ampel in fester Präzedenz: Störung > Keine Daten > EVU-Sperre > Verdichter > Bereit. -#}
+  {%- macro dot(sens, bsens) -%}
+    {%- set f = pick(bsens, ['fehlerstatus', 'stoerung', 'error_status']) | trim -%}
+    {%- set o = pick(sens, ['aussentemp', 'aussentemperatur', 'outside_temperature']) | trim -%}
+    {%- set evu = pick(bsens, ['sperrzeit_evu', 'evu_sperre', 'power_off']) | trim -%}
+    {%- set c = pick(bsens, ['verdichter', 'compressor_on']) | trim -%}
+    {%- if f and is_state(f, 'on') -%}🔴
+    {%- elif not o or not has_value(o) -%}⚪
+    {%- elif evu and is_state(evu, 'on') -%}🟡
+    {%- elif c and is_state(c, 'on') -%}🔵
+    {%- else -%}🟢{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Klartext zur Ampel — Farbe ist nie die einzige Information (Barrierefreiheit). -#}
+  {%- macro status_text(sens, bsens) -%}
+    {%- set s = dot(sens, bsens) | trim -%}
+    {{- 'Störung' if s == '🔴'
+        else ('Keine Daten' if s == '⚪'
+        else ('EVU-Sperre' if s == '🟡'
+        else ('Verdichter läuft' if s == '🔵' else 'Bereit'))) -}}
+  {%- endmacro -%}
+  {# @@END@@ #}
+  {# @@SYNC:templates/jinja/functions.j2@@ #}
+  {#- Funktionskatalog — Quelle: templates/jinja/functions.j2 (sync_jinja.py).
+      F.<funktion> = Suffix-Kandidaten in Prioritätsreihenfolge. Quelle: docs/design.md §4.2.
+  -#}
+  {%- set F = {
+    'aussen': ['aussentemp', 'aussentemperatur', 'outside_temperature'],
+    'vorlauf_wp': ['vorlaufisttemp_wp', 'vorlauftemperatur_wp', 'flow_temperature_wp'],
+    'vorlauf': ['vorlauftemperatur', 'vorlauftemp', 'flow_temperature'],
+    'ruecklauf': ['ruecklaufisttemp_wp', 'rucklauftemperatur', 'return_temperature'],
+    'puffer_ist': ['pufferisttemperatur', 'ist_temperatur_puffer', 'actual_temperature_buffer'],
+    'puffer_soll': ['puffersolltemperatur', 'soll_temperatur_puffer', 'target_temperature_buffer'],
+    'ww_ist': ['speicheristtemp', 'ist_temperatur_warmwasser', 'actual_temperature_water'],
+    'ww_soll': ['speichersolltemp', 'soll_temperatur_warmwasser', 'target_temperature_water'],
+    'hk1_ist': ['isttemperatur_hk1', 'ist_temperatur_hk_1', 'actual_temperature_hk_1'],
+    'hk1_soll': ['solltemperatur_hk1', 'soll_temperatur_hk_1', 'target_temperature_hk_1'],
+    'raum_ist': ['raumisttemp', 'ist_raumtemperatur_hk_1', 'actual_room_temperature_hk_1'],
+    'raum_soll': ['raumsolltemp', 'soll_raumtemperatur_hk_1', 'target_room_temperature_hk_1'],
+    'raumfeuchte': ['raumfeuchte', 'luftfeuchtigkeit_hk_1', 'actual_humidity_hk_1'],
+    'taupunkt': ['taupunkttemp', 'taupunkttemperatur', 'dew_point_temperature'],
+    'heizdruck': ['heizungsdruck', 'heizdruck', 'heater_pressure'],
+    'volumenstrom': ['volumenstrom', 'volume_stream'],
+    'heissgas': ['heissgastemp', 'heissgastemperatur', 'hot_gas_temperature'],
+    'hochdruck': ['druck_hochdruck', 'hochdruck', 'high_pressure'],
+    'niederdruck': ['druck_niederdruck', 'niederdruck', 'low_pressure'],
+    'betriebsart': ['programmschalter', 'betriebsart', 'operation_mode'],
+    'hk1_climate': ['heizkreis_1', 'heat_circuit_1'],
+    'komfort': ['komforttemperatur', 'tagbetrieb_temperatursoll_hk_1', 'comfort_temperature_target_hk1'],
+    'eco': ['ecotemperatur', 'absenkbetrieb_temperatursoll_hk_1', 'eco_temperature_target_hk1'],
+    'heizkurve': ['steigung_heizkurve', 'heizkurve_steilheit_hk_1', 'heating_curve_rise_hk1'],
+    'ww_komfort': ['einstell_speichersolltemp', 'tagbetrieb_warmwasser_temperatursoll', 'comfort_water_temperature_target'],
+    'ww_eco': ['ww_eco_temp', 'absenkbetrieb_warmwasser_temperatursoll', 'eco_water_temperature_target'],
+    'bivalenz_hzg': ['bivalenztemperatur_hzg', 'bivalenztemperatur_heizung', 'dualmode_temperature_hzg'],
+    'bivalenz_ww': ['bivalenztemperatur_warmwasser', 'dualmode_temperature_ww'],
+    'sg_ready': ['sg_ready_aktiv', 'sg_ready_active'],
+    'verdichter': ['verdichter', 'compressor_on'],
+    'heizbetrieb': ['heizbetrieb', 'is_heating'],
+    'ww_betrieb': ['warmwasserbetrieb', 'is_heating_boiler'],
+    'sommerbetrieb': ['sommerbetrieb', 'is_summer_mode'],
+    'kuehlbetrieb': ['kuehlbetrieb', 'is_cooling'],
+    'abtauung': ['verdampferabtauung', 'evaporator_defrost'],
+    'evu': ['sperrzeit_evu', 'evu_sperre', 'power_off'],
+    'fehler': ['fehlerstatus', 'stoerung', 'error_status'],
+    'fehlernr': ['aktiver_fehler', 'active_error'],
+    'hk1_pumpe': ['heizkreispumpe_1', 'heizkreis_1_pumpe', 'heating_circuit_1_pump'],
+    'ww_ladepumpe': ['pufferladepumpe_1', 'warmwasser_ladepumpe', 'dhw_charging_pump'],
+    'quellenpumpe': ['quellenpumpe', 'source_pump'],
+    'nhz': ['nhz_1', 'nhz_stufen_aktiv', 'nhz_stages_running'],
+    'heizwaerme_heute': ['waermeertrag_heiz_tag_summe_kwh', 'erzeugte_heizwarme_heute', 'produced_heating_today'],
+    'heizwaerme_gesamt': ['waermeertrag_heiz_summe_mwh', 'erzeugte_heizwarme_gesamt', 'produced_heating_total'],
+    'ww_waerme_heute': ['waermeertrag_ww_tag_summe_kwh', 'erzeugte_warmwasserwarme_heute', 'produced_water_heating_today'],
+    'ww_waerme_gesamt': ['waermeertrag_ww_summe_mwh', 'erzeugte_warmwasserwarme_gesamt', 'produced_water_heating_total'],
+    'strom_heiz_heute': ['verbrauchte_heizenergie_heute', 'consumed_heating_today'],
+    'strom_heiz_gesamt': ['el_energieaufnahme_heiz_summe_kwh', 'verbrauchte_heizenergie_gesamt', 'consumed_heating_total'],
+    'strom_ww_heute': ['verbrauchte_warmwasserenergie_heute', 'consumed_water_heating_today'],
+    'strom_ww_gesamt': ['el_energieaufnahme_ww_summe_kwh', 'verbrauchte_warmwasserenergie_gesamt', 'consumed_water_heating_total'],
+    'laufzeit_heiz': ['laufzeit_vd_heizen', 'verdichter_heizung', 'compressor_heating'],
+    'laufzeit_ww': ['laufzeit_vd_warmwasser', 'verdichter_warmwasser', 'compressor_heating_water'],
+    'starts': ['verdichter_starts', 'verdichterstarts', 'compressor_starts'],
+    'cop_heiz': ['effizienz_heizung_letzte_24_h', 'efficiency_heating_1_24_h'],
+    'cop_ww': ['effizienz_warmwasser_letzte_24_h', 'efficiency_dhw_1_24_h']
+  } -%}
+  {# @@END@@ #}
+  {%- set dev = device_id('this.entity_id') -%}
+  {%- set all = device_entities(dev) | sort if dev else [] -%}
+  {%- set sens = all | select('match', '^sensor\\.') | list -%}
+  {%- set nums = all | select('match', '^number\\.') | list -%}
+  {%- set sels = all | select('match', '^select\\.') | list -%}
+  {%- set sws = all | select('match', '^switch\\.') | list -%}
+  {%- set bsens = all | select('match', '^binary_sensor\\.') | list -%}
+  {%- set clims = all | select('match', '^climate\\.') | list -%}
+  {%- set miss = namespace(l=[]) -%}
+  {%- set diag = namespace(rows=[]) -%}
+  {%- if dev -%}
+    {%- if not (has(sens, F.aussen) | trim) -%}{%- set miss.l = miss.l + ['Außentemperatur'] -%}{%- endif -%}
+    {%- if not (has(sens, F.vorlauf_wp) | trim) -%}{%- set miss.l = miss.l + ['Vorlauf WP'] -%}{%- endif -%}
+    {%- if not (has(sens, F.ww_ist) | trim) -%}{%- set miss.l = miss.l + ['Warmwasser'] -%}{%- endif -%}
+    {%- if not (has(sels, F.betriebsart) | trim) -%}{%- set miss.l = miss.l + ['Betriebsart'] -%}{%- endif -%}
+    {%- if has(sens, F.heissgas) | trim -%}{%- set diag.rows = diag.rows + ['| Heißgas | ' ~ (num(sens, F.heissgas, 1) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(sens, F.hochdruck) | trim -%}{%- set diag.rows = diag.rows + ['| Hochdruck | ' ~ (num(sens, F.hochdruck, 1) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(sens, F.niederdruck) | trim -%}{%- set diag.rows = diag.rows + ['| Niederdruck | ' ~ (num(sens, F.niederdruck, 1) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(sens, F.volumenstrom) | trim -%}{%- set diag.rows = diag.rows + ['| Volumenstrom | ' ~ (num(sens, F.volumenstrom, 1) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(bsens, F.hk1_pumpe) | trim -%}{%- set diag.rows = diag.rows + ['| HK1-Pumpe | ' ~ (bin(bsens, F.hk1_pumpe) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(bsens, F.quellenpumpe) | trim -%}{%- set diag.rows = diag.rows + ['| Quellenpumpe | ' ~ (bin(bsens, F.quellenpumpe) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(sens, F.cop_heiz) | trim -%}{%- set diag.rows = diag.rows + ['| Effizienz 24 h Heizung (Anlagenangabe) | ' ~ (num(sens, F.cop_heiz, 2) | trim) ~ ' |'] -%}{%- endif -%}
+    {%- if has(sens, F.cop_ww) | trim -%}{%- set diag.rows = diag.rows + ['| Effizienz 24 h Warmwasser (Anlagenangabe) | ' ~ (num(sens, F.cop_ww, 2) | trim) ~ ' |'] -%}{%- endif -%}
+  {%- endif -%}
+  {% if dev %}
+  ## {{ dot(sens, bsens) | trim }} {{ device_attr(dev, 'name_by_user') or device_attr(dev, 'name') or 'Wärmepumpe' }}
+
+  {{ area_name('this.entity_id') or area_name(dev) or '—' }} · **{{ status_text(sens, bsens) | trim }}**{% if device_attr(dev, 'manufacturer') and device_attr(dev, 'model') %} · {{ device_attr(dev, 'manufacturer') }} {{ device_attr(dev, 'model') }}{% endif %}
+
+  {% if miss.l %}
+  > **Nicht verfügbar:** {{ miss.l | join(', ') }}. Betroffene Zeilen zeigen „—“ — die Karte bleibt vollständig.
+  {% endif %}
+
+  ### Temperaturen
+
+  | Messpunkt | Wert |
+  |---|---|
+  | Außen | {{ num(sens, F.aussen, 1) }} |
+  | Vorlauf WP | {{ num(sens, F.vorlauf_wp, 1) }} |
+  | Vorlauf gesamt | {{ num(sens, F.vorlauf, 1) }} |
+  | Rücklauf | {{ num(sens, F.ruecklauf, 1) }} |
+  | Puffer (Ist / Soll) | {{ num(sens, F.puffer_ist, 1) }} / {{ num(sens, F.puffer_soll, 1) }} |
+  | Heizkreis 1 (Ist / Soll) | {{ num(sens, F.hk1_ist, 1) }} / {{ num(sens, F.hk1_soll, 1) }} |
+  | Raum (Ist / Soll) | {{ num(sens, F.raum_ist, 1) }} / {{ num(sens, F.raum_soll, 1) }} |
+  | Raumfeuchte | {{ num(sens, F.raumfeuchte, 0) }} |
+  | Taupunkt | {{ num(sens, F.taupunkt, 1) }} |
+  | Heizdruck | {{ num(sens, F.heizdruck, 1) }} |
+
+  ### Warmwasser
+
+  | Größe | Wert |
+  |---|---|
+  | Ist | {{ num(sens, F.ww_ist, 1) }} |
+  | Soll (Ist-Wert der Anlage) | {{ num(sens, F.ww_soll, 1) }} |
+  | Komfort-Soll | {{ num(nums + sens, F.ww_komfort, 1) }} |
+  | Eco-Soll | {{ num(nums + sens, F.ww_eco, 1) }} |
+  | Ladepumpe | {{ bin(bsens, F.ww_ladepumpe) }} |
+  | Warmwasserbetrieb | {{ bin(bsens, F.ww_betrieb) }} |
+
+  ### Betrieb
+
+  | Größe | Wert |
+  |---|---|
+  | Betriebsart | {{ val(sels, F.betriebsart) }} |
+  | Heizkreis 1 (Climate) | {{ val(clims, F.hk1_climate) }} |
+  | Komfort HK1 | {{ num(nums + sens, F.komfort, 1) }} |
+  | Eco HK1 | {{ num(nums + sens, F.eco, 1) }} |
+  | Heizkurve | {{ num(nums + sens, F.heizkurve, 2) }} |
+  | Bivalenz Heizung | {{ num(nums + sens, F.bivalenz_hzg, 1) }} |
+  | Bivalenz Warmwasser | {{ num(nums + sens, F.bivalenz_ww, 1) }} |
+  | SG Ready | {{ bin(sws, F.sg_ready) }} |
+
+  ### Energie
+
+  | Größe | Wert |
+  |---|---|
+  | Heizwärme heute | {{ num(sens, F.heizwaerme_heute, 1) }} |
+  | Heizwärme gesamt | {{ num(sens, F.heizwaerme_gesamt, 1) }} |
+  | Warmwasser-Wärme heute | {{ num(sens, F.ww_waerme_heute, 1) }} |
+  | Warmwasser-Wärme gesamt | {{ num(sens, F.ww_waerme_gesamt, 1) }} |
+  | Strom Heizung heute | {{ num(sens, F.strom_heiz_heute, 1) }} |
+  | Strom Heizung gesamt ⚠ | {{ num(sens, F.strom_heiz_gesamt, 1) }} |
+  | Strom Warmwasser heute | {{ num(sens, F.strom_ww_heute, 1) }} |
+  | Strom Warmwasser gesamt ⚠ | {{ num(sens, F.strom_ww_gesamt, 1) }} |
+  | Laufzeit Verdichter Heizung | {{ num(sens, F.laufzeit_heiz, 0) }} |
+  | Laufzeit Verdichter Warmwasser | {{ num(sens, F.laufzeit_ww, 0) }} |
+  | Verdichterstarts | {{ ints(sens, F.starts) }} |
+
+  ⚠ Gerätezähler: Einheit wird unverändert übernommen (kWh/MWh wie geliefert), nicht umgerechnet. Ein lokaler Wärmemengenzähler ist ungeprüft — **COP berechnet das Dashboard deshalb nicht** (Details unter „Diagnose“, sofern die Anlage eine Effizienzangabe liefert).
+
+  ### Störungen und Zustand
+
+  | Größe | Wert |
+  |---|---|
+  | Fehlerstatus | {{ bin(bsens, F.fehler) }} |
+  | Aktiver Fehler (Nummer) | {{ ints(sens, F.fehlernr) }} |
+  | EVU-Sperre | {{ bin(bsens, F.evu) }} |
+  | Abtauung | {{ bin(bsens, F.abtauung) }} |
+  | Heizbetrieb | {{ bin(bsens, F.heizbetrieb) }} |
+  | Sommerbetrieb | {{ bin(bsens, F.sommerbetrieb) }} |
+  | Kühlbetrieb | {{ bin(bsens, F.kuehlbetrieb) }} |
+  | Not-/Zusatzheizung (NHZ) | {{ bin(bsens, F.nhz) }} |
+
+  _Störungen werden nur in der Servicewelt des Geräts quittiert — dieses Dashboard zeigt sie an und schaltet nichts._
+
+  {% if diag.rows %}
+  ### Diagnose
+
+  <details>
+  <summary>Technische Zusatzwerte (nur vorhandene)</summary>
+
+  | Kennzahl | Wert |
+  |---|---|
+  {{ diag.rows | join('\n') }}
+
+  </details>
+  {% endif %}
+
+  [Bedienung →](/stiebel-eltron/bedienung) · [Übersicht →](/stiebel-eltron/uebersicht)
+  {% else %}
+  _Anker-Entität `{{ 'this.entity_id' }}` ist keinem Gerät zugeordnet. Die Karte bleibt sichtbar, damit der Fehler nicht still verschwindet._
+  {% endif %}

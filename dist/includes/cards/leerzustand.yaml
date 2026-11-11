@@ -1,0 +1,35 @@
+type: markdown
+content: |
+  ## Keine Wärmepumpe gefunden
+
+  Dieses Dashboard hat in deinem Home Assistant keine Anlage erkannt. Es ist **kein Fehler der YAML** — die Karten warten auf ein Gerät. Drei Wege führen zum Ziel:
+
+  ### 1. Label setzen (ESPHome / MQTT / Modbus)
+
+  Einstellungen → **Geräte & Dienste** → **Geräte** → deine Wärmepumpe öffnen → **Label** → `stiebel_eltron` anlegen und zuweisen. Danach diese Seite neu laden.
+
+  ### 2. Integration nutzen (ISG / HTTP)
+
+  Läuft die Anlage über **Stiebel Eltron ISG** (`stiebel_eltron_isg`) oder **Stiebel Eltron HTTP** (`stiebel_eltron_http`), wird ihr Gerät ohne Label erkannt. Prüfe, ob der Config Entry geladen ist (Einstellungen → Geräte & Dienste).
+
+  ### 3. Signatur prüfen (automatische Erkennung)
+
+  Ohne Label erkennt das Dashboard ein Gerät, wenn es mindestens **drei** dieser Merkmale als Entitäten hat:
+
+  `*_aussentemp` / `*_aussentemperatur` / `*_outside_temperature`,
+  `*_vorlaufisttemp_wp`, `*_speicheristtemp`, `*_programmschalter`, `*_verdichter`
+
+  Zusätzlich braucht jede Karte eine **Außentemperatur-Entität** als Anker — sie verbindet Karte und Gerät.
+
+  <details>
+  <summary>Warum kein fester Entity-Präfix?</summary>
+
+  Entity-IDs entstehen aus Gerätename und lokalisiertem Entitätsnamen. Sie ändern sich mit Sprache, Umbenennung, Area und einem zweiten Gerät (`_2`).
+  Lokal heißen die Entitäten sogar innerhalb eines Geräts unterschiedlich
+  (`sensor.heatingpump_aussentemp` und `sensor.esp32_poe_technik_vorlaufisttemp_wp`).
+
+  Das Dashboard sucht deshalb **Funktion + Gerät** (Device-ID) statt Präfix + Name. Details: `docs/design.md` im Repository.
+
+  </details>
+
+  _Das ist die Bordmittel-Karte; sie erscheint nur, solange keine Anlage erkannt wird._

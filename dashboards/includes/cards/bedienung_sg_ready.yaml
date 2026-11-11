@@ -1,0 +1,23 @@
+type: custom:auto-entities
+card:
+  type: grid
+  columns: 2
+  square: false
+card_param: cards
+unique: entity
+show_empty: false
+filter:
+  include:
+    - domain: switch
+      entity_id: '/_(sg_ready_aktiv|sg_ready_active)(_[0-9]+)?$/'
+      or:
+        - label: stiebel_eltron
+        - integration: stiebel_eltron_isg
+      options:
+        type: tile
+  exclude:
+    - integration: stiebel_eltron_http
+else:
+  type: markdown
+  content: |
+    _Kein SG-Ready-Schalter gefunden._ Die Anlage bietet keine `switch`-Entität `*_sg_ready_aktiv`; §14a-/SG-Ready-Steuerung läuft dann außerhalb dieses Dashboards.

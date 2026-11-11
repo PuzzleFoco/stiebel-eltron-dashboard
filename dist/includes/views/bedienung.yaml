@@ -1,0 +1,34 @@
+title: Bedienung
+path: bedienung
+icon: mdi:tune-variant
+type: sections
+max_columns: 2
+sections:
+  - type: grid
+    cards:
+      - !include ../cards/bedienung_hinweis.yaml
+      - type: heading
+        heading: Betriebsart
+        heading_style: title
+        icon: mdi:swap-horizontal
+      - !include ../cards/bedienung_modus.yaml
+  - type: grid
+    cards:
+      - type: heading
+        heading: Warmwasser
+        heading_style: title
+        icon: mdi:water-thermometer
+      - !include ../cards/bedienung_warmwasser.yaml
+      - type: heading
+        heading: Heizkreis
+        heading_style: title
+        icon: mdi:radiator
+      - !include ../cards/bedienung_heizung.yaml
+      - !include ../cards/bedienung_climate.yaml
+  - type: grid
+    cards:
+      - type: heading
+        heading: SG Ready
+        heading_style: title
+        icon: mdi:transmission-tower
+      - !include ../cards/bedienung_sg_ready.yaml

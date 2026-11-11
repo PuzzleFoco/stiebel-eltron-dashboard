@@ -1,0 +1,23 @@
+type: custom:auto-entities
+card:
+  type: grid
+  columns: 1
+  square: false
+card_param: cards
+unique: entity
+show_empty: false
+sort:
+  method: device
+  ignore_case: true
+filter:
+  include:
+    # Ein Filter, drei Namensvarianten, optionaler HA-Duplikatsuffix (_2, _3 …):
+    # Damit entsteht für eine zweite Anlage automatisch eine zweite Karte.
+    - domain: sensor
+      entity_id: '/_(aussentemp|aussentemperatur|outside_temperature)(_[0-9]+)?$/'
+      or:
+        - label: stiebel_eltron
+        - integration: stiebel_eltron_isg
+        - integration: stiebel_eltron_http
+      options: !include uebersicht_karte.yaml
+else: !include leerzustand.yaml

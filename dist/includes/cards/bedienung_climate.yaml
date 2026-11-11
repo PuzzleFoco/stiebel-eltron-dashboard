@@ -1,0 +1,26 @@
+type: custom:auto-entities
+card:
+  type: grid
+  columns: 2
+  square: false
+card_param: cards
+unique: entity
+show_empty: false
+filter:
+  include:
+    - domain: climate
+      entity_id: '/_(heizkreis_1|heat_circuit_1)(_[0-9]+)?$/'
+      or:
+        - label: stiebel_eltron
+        - integration: stiebel_eltron_isg
+      options:
+        type: tile
+        features:
+          - type: climate-hvac-modes
+          - type: target-temperature
+  exclude:
+    - integration: stiebel_eltron_http
+else:
+  type: markdown
+  content: |
+    _Kein Heizkreis als `climate`-Entität gefunden._ Das ist normal, wenn die Anbindung nur Sensoren und Sollwert-`number` liefert — die Sollwerte stehen dann in der Gruppe darüber.

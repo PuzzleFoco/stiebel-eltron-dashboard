@@ -33,6 +33,9 @@ jobs:
       - name: Repository-Gerüst validieren
         run: python scripts/validate.py
 
+      - name: Jinja-Blöcke sind synchron zu templates/jinja/
+        run: python scripts/sync_jinja.py --check
+
       - name: dist/ ist synchron zu dashboards/
         run: python scripts/sync_dist.py --check
 
@@ -73,6 +76,9 @@ jobs:
 
       - name: Dashboard-YAML mit HA-Loader prüfen
         run: python scripts/check_ha_parse.py
+
+      - name: Abnahmetest (zwei simulierte Anlagen)
+        run: python scripts/render_test.py
 
   hacs:
     name: HACS-Validierung

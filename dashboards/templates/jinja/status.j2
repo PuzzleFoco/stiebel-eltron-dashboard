@@ -1,0 +1,27 @@
+{#-
+  Status-Ampel — kanonische Quelle: templates/jinja/status.j2
+  Wird von scripts/sync_jinja.py in die Karten kopiert. Nicht in den Karten ändern.
+  Setzt die Makros aus resolver.j2 voraus (pick, has_value, is_state).
+-#}
+
+{#- Ampel in fester Präzedenz: Störung > Keine Daten > EVU-Sperre > Verdichter > Bereit. -#}
+{%- macro dot(sens, bsens) -%}
+  {%- set f = pick(bsens, ['fehlerstatus', 'stoerung', 'error_status']) | trim -%}
+  {%- set o = pick(sens, ['aussentemp', 'aussentemperatur', 'outside_temperature']) | trim -%}
+  {%- set evu = pick(bsens, ['sperrzeit_evu', 'evu_sperre', 'power_off']) | trim -%}
+  {%- set c = pick(bsens, ['verdichter', 'compressor_on']) | trim -%}
+  {%- if f and is_state(f, 'on') -%}🔴
+  {%- elif not o or not has_value(o) -%}⚪
+  {%- elif evu and is_state(evu, 'on') -%}🟡
+  {%- elif c and is_state(c, 'on') -%}🔵
+  {%- else -%}🟢{%- endif -%}
+{%- endmacro -%}
+
+{#- Klartext zur Ampel — Farbe ist nie die einzige Information (Barrierefreiheit). -#}
+{%- macro status_text(sens, bsens) -%}
+  {%- set s = dot(sens, bsens) | trim -%}
+  {{- 'Störung' if s == '🔴'
+      else ('Keine Daten' if s == '⚪'
+      else ('EVU-Sperre' if s == '🟡'
+      else ('Verdichter läuft' if s == '🔵' else 'Bereit'))) -}}
+{%- endmacro -%}
