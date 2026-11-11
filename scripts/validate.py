@@ -239,24 +239,33 @@ def check_hacs_json() -> dict[str, Any]:
 
 
 def check_hacs_structure(data: dict[str, Any]) -> None:
-    """HACS-Kategorie Dashboard/plugin: .js-Einstiegspunkt aus hacs.json."""
-    content_in_root = bool(data.get("content_in_root", False))
-    base = ROOT if content_in_root else DIST_DIR
+    """HACS-Kategorie Dashboard/plugin: .js-Einstiegspunkt aus hacs.json.
 
-    if not base.is_dir():
-        fail(f"Zielordner für HACS-Inhalte fehlt: {base.relative_to(ROOT)}")
-        return
+    Die .js-Datei liegt seit der Strategie-Variante im Repository-Root
+    (HACS liefert bei Plugins nur .js-Dateien aus). Für ältere Stände wird
+    zusätzlich dist/ als Ort akzeptiert.
+    """
+    content_in_root = bool(data.get("content_in_root", False))
+    fallback = ROOT if content_in_root else DIST_DIR
 
     entry = data.get("filename")
     if not isinstance(entry, str) or not entry.strip():
         fail("hacs.json: 'filename' fehlt – HACS findet den .js-Einstiegspunkt dann nur über den Repo-Namen")
-    elif not entry.endswith(".js"):
+        return
+    if not entry.endswith(".js"):
         fail(f"hacs.json: 'filename' muss eine .js-Datei benennen, ist aber {entry!r}")
-    elif not (base / entry).is_file():
-        fail(f"HACS-Struktur: {base.relative_to(ROOT)}/{entry} fehlt (Kategorie Dashboard braucht die .js-Datei)")
+        return
 
-    if not sorted(base.glob("*.js")):
-        fail(f"HACS-Struktur: keine .js-Datei in {base.relative_to(ROOT)}/")
+    for base in (ROOT, fallback, DIST_DIR):
+        if (base / entry).is_file():
+            if not sorted(base.glob("*.js")):
+                fail(f"HACS-Struktur: keine .js-Datei in {base.relative_to(ROOT)}/")
+            return
+
+    fail(
+        f"HACS-Struktur: {entry} fehlt im Repository-Root und in "
+        f"{DIST_DIR.relative_to(ROOT)}/ (Kategorie Dashboard braucht die .js-Datei)"
+    )
 
 
 def check_auto_entities(card: dict[str, Any], where: str) -> None:

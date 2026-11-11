@@ -9,8 +9,30 @@ Ein Lovelace-Dashboard für Stiebel-Eltron-Wärmepumpen, das
 
 - über HACS installier- und aktualisierbar ist,
 - mit einer **oder mehreren** Anlagen im selben Home Assistant funktioniert,
-- ohne eigene Integration auskommt (reines YAML, keine Python-Laufzeit),
+- ohne Python-Laufzeit auskommt (YAML als Quelle, eine generierte JS-Strategie als Auslieferung),
 - nach der Installation in wenigen Schritten in der Seitenleiste auftaucht.
+
+## Entscheidung 0 (v0.4.0): Auslieferung als Lovelace-Strategie
+
+**Befund (live gegen Home Assistant 2026.11.1 geprüft):** Die Marketplace-Kategorie
+Dashboard (`plugin`) liefert ausschließlich JavaScript-Dateien aus. Ein Repository mit
+`dist/`-YAML und `includes/` wird zwar als Repository akzeptiert, der Download bricht aber ab:
+„The installed content has no stiebel-eltron-dashboard.js“. Die Implementierung in
+`homeassistant/components/marketplace/repositories/plugin.py` sammelt nur Dateien aus dem
+Repository-Root bzw. `dist/` mit `.js`-Endung ein; Unterordner und YAML bleiben liegen.
+
+**Entscheidung:** Die HACS-Auslieferung ist eine einzige JS-Datei
+(`stiebel-eltron-dashboard.js`) mit einer Lovelace-Dashboard-Strategie
+(`custom:stiebel-eltron`). Sie enthält die aufgelöste Dashboard-Konfiguration und löst die
+`custom:auto-entities`-Karten zur Laufzeit je Gerät auf. Die YAML-Dateien bleiben als manuelle
+Variante (Weg B) erhalten.
+
+**Folgen:**
+
+- HACS installiert nur die Strategie; weder `includes/` noch `auto-entities` werden gebraucht.
+- `hacs.json → filename` benennt die Datei im Repository-Root; das Release-Asset heißt genauso.
+- `dist/` ist nur noch die YAML-Variante und nicht mehr HACS-Payload.
+- Die Entscheidungen 1–3 beschreiben die YAML-Variante und bleiben als Historie dokumentiert.
 
 ## Entscheidung 1: HACS-Kategorie **Dashboard** (intern `plugin`)
 
@@ -37,6 +59,10 @@ Belege im HACS-Quellcode (`custom_components/hacs/repositories/plugin.py`):
 
 Damit ist die YAML-Kartei Teil des HACS-Updates, ohne dass eine Integration
 nötig wäre.
+
+> **Überholt durch Entscheidung 0 (v0.4.0):** Diese Annahme gilt für HACS 2026.10 und älter.
+> Der Marketplace ab 2026.11 kopiert bei Plugins nur `.js`-Dateien; die YAML-Variante wird
+> deshalb nicht mehr über HACS, sondern als Quell-ZIP verteilt.
 
 ### Warum trotzdem eine `.js`-Datei?
 

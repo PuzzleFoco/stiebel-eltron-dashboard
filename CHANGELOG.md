@@ -4,6 +4,37 @@ Alle nennenswerten Änderungen an diesem Repository.
 Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.4.0] - 2026-11-11
+
+### Hinzugefügt
+
+- **HACS-Strategie `custom:stiebel-eltron`**: `stiebel-eltron-dashboard.js` ist jetzt eine
+  vollwertige Lovelace-Dashboard-Strategie. Eine HACS-Installation (Kategorie **Dashboard**)
+  liefert genau eine JS-Datei; das Dashboard wird mit zwei Zeilen Raw-Konfiguration angelegt.
+  Die Strategie erzeugt die drei Views und löst die Karten je Anlage zur Laufzeit selbst auf –
+  **ohne `auto-entities`**, ohne `configuration.yaml`-Eintrag und ohne Neustart.
+- `scripts/build_strategy.py` baut das Bundle aus `dashboards/` + `scripts/strategy_runtime.js`.
+- `scripts/test_strategy.mjs`: 16 Abnahmeprüfungen gegen zwei simulierte Anlagen (Label,
+  ISG-Integration, `_2`-Suffixe, HTTP-Ausschluss, keine `auto-entities`-Reste).
+- README beschreibt jetzt zwei Installationswege: **Weg A – HACS + Strategie** und
+  **Weg B – YAML-Dateien**.
+
+### Geändert
+
+- HACS-Auslieferung: Die `.js`-Datei liegt im Repository-Root und wird als Release-Asset
+  veröffentlicht; `dist/` enthält nur noch die YAML-Variante. Der Release-Workflow lädt nur
+  die Strategie-Datei hoch.
+- `scripts/validate.py` akzeptiert den `.js`-Einstiegspunkt im Root (vorher nur `dist/`).
+- Der Hinweis in der Zusammenfassungskarte unterscheidet jetzt YAML-Variante und Strategie.
+
+### Behoben
+
+- **HACS-Installation der reinen YAML-Variante war in Home Assistant 2026.11 nicht möglich:**
+  Die Marketplace-Kategorie Dashboard liefert ausschließlich JavaScript-Dateien aus, keine
+  `includes/`-Ordner. Der Download endete mit
+  „The installed content has no stiebel-eltron-dashboard.js“. Die Strategie ist die
+  HACS-native Lösung; die YAML-Dateien bleiben als manuelle Variante erhalten.
+
 ## [0.3.0] - 2026-11-11
 
 ### Hinzugefügt

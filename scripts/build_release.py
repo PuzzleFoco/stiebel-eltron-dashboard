@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Baut das Release-Artefakt für einen Tag (vX.Y.Z).
+"""Baut die Release-Artefakte für einen Tag (vX.Y.Z).
 
 Ergebnis in release/:
-  stiebel-eltron-dashboard-vX.Y.Z.zip   Inhalt von dist/ (Dashboard-YAML + .js)
-  SHA256SUMS.txt                        Prüfsumme des Archivs
+  stiebel-eltron-dashboard.js           HACS-Asset (Strategie, Einzeldatei)
+  stiebel-eltron-dashboard-vX.Y.Z.zip   manuelle YAML-Variante (dist/)
+  SHA256SUMS.txt                        Prüfsummen beider Dateien
 
-Wichtig für HACS: Es darf KEIN Release-Asset geben, das exakt so heißt wie
-hacs.json -> filename (also stiebel-eltron-dashboard.js). HACS schaltet sonst
-in den "release"-Modus und lädt nur diese eine Datei – die Dashboard-YAML käme
-nie beim Nutzer an. Das Archiv heißt deshalb bewusst anders.
+HACS (Marketplace 2026.11, Kategorie Dashboard) lädt bei gesetztem
+`filename` genau dieses Release-Asset und legt es unter
+www/community/<repo>/ ab. Deshalb heißt das Asset exakt wie in hacs.json;
+das ZIP ist nur für die manuelle Installation gedacht und wird von HACS
+nicht benötigt.
 
 Aufruf:
     python scripts/build_release.py --version 0.1.0
@@ -20,6 +22,7 @@ import argparse
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -54,12 +57,14 @@ def sha256(path: Path) -> str:
 
 
 def build(version: str) -> int:
-    """Archiv erzeugen."""
+    """HACS-Asset und manuelles Archiv erzeugen."""
     run("validate.py")
+    run("build_strategy.py", "--check")
     run("sync_dist.py", "--check")
 
     RELEASE_DIR.mkdir(exist_ok=True)
     archive = RELEASE_DIR / f"{PACKAGE}-v{version}.zip"
+    hacs_asset = RELEASE_DIR / "stiebel-eltron-dashboard.js"
 
     files: list[Path] = []
     for path in sorted(DIST_DIR.rglob("*")):
@@ -83,15 +88,24 @@ def build(version: str) -> int:
                 arcname = path.name
             zf.write(path, arcname)
 
+    shutil.copyfile(ROOT / "stiebel-eltron-dashboard.js", hacs_asset)
+
     checksum = sha256(archive)
+    asset_checksum = sha256(hacs_asset)
     sums = RELEASE_DIR / "SHA256SUMS.txt"
-    sums.write_text(f"{checksum}  {archive.name}\n", encoding="utf-8")
+    sums.write_text(
+        f"{asset_checksum}  {hacs_asset.name}\n{checksum}  {archive.name}\n",
+        encoding="utf-8",
+    )
 
     size_kib = archive.stat().st_size / 1024
+    asset_kib = hacs_asset.stat().st_size / 1024
     lines = [
         f"Release {version} gebaut",
-        f"  Archiv : {archive.relative_to(ROOT)} ({size_kib:.1f} KiB, {len(files)} Dateien)",
-        f"  SHA256 : {checksum}",
+        f"  HACS   : {hacs_asset.relative_to(ROOT)} ({asset_kib:.1f} KiB) <- Release-Asset",
+        f"  Archiv : {archive.relative_to(ROOT)} ({size_kib:.1f} KiB, {len(files)} Dateien, manuell)",
+        f"  SHA256 : {asset_checksum}  {hacs_asset.name}",
+        f"           {checksum}  {archive.name}",
     ]
     print("\n".join(lines))
 
@@ -101,7 +115,8 @@ def build(version: str) -> int:
             handle.write(
                 f"## Release v{version}\n\n"
                 f"| Artefakt | Größe | SHA-256 |\n|---|---|---|\n"
-                f"| `{archive.name}` | {size_kib:.1f} KiB | `{checksum}` |\n"
+                f"| `{hacs_asset.name}` (HACS) | {asset_kib:.1f} KiB | `{asset_checksum}` |\n"
+                f"| `{archive.name}` (manuell) | {size_kib:.1f} KiB | `{checksum}` |\n"
             )
 
     return 0

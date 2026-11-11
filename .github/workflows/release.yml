@@ -62,13 +62,8 @@ jobs:
         run: |
           set -euo pipefail
           ls -l release/
+          test -s "release/stiebel-eltron-dashboard.js"
           unzip -l "release/stiebel-eltron-dashboard-v${{ steps.version.outputs.version }}.zip"
-          # Schutz: kein Release-Asset, das wie der HACS-Einstiegspunkt heißt.
-          # Sonst lädt HACS nur diese eine Datei und die Dashboard-YAML fehlt.
-          if compgen -G "release/*.js" > /dev/null; then
-            echo "::error::Release darf keine .js-Datei als Asset enthalten"
-            exit 1
-          fi
 
       - name: Release veröffentlichen
         uses: softprops/action-gh-release@v2
@@ -78,5 +73,4 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            release/stiebel-eltron-dashboard-v${{ steps.version.outputs.version }}.zip
-            release/SHA256SUMS.txt
+            release/stiebel-eltron-dashboard.js

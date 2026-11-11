@@ -3,16 +3,18 @@
 ![Stiebel Eltron Dashboard](docs/images/banner.svg)
 
 Ein Lovelace-Dashboard für Stiebel-Eltron-Wärmepumpen – für **eine oder mehrere Anlagen** im
-selben Home Assistant. Installation über HACS, danach ohne YAML-Arbeit: ein zweites Gerät
-erscheint automatisch als zweiter Block.
+selben Home Assistant. Ein zweites Gerät erscheint automatisch als zweiter Block, ohne
+YAML-Änderung.
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PuzzleFoco&repository=stiebel-eltron-dashboard&category=plugin)
 
-> **Status: v0.3.0** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
+> **Status: v0.4.0** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
 > Label, Integration oder Signatur · fehlende Werte werden sichtbar zu „—“ statt zu 0.
 >
-> **Pflicht-Baustein:** die HACS-Karte **`auto-entities`** (`custom:auto-entities`).
-> Ohne sie bleiben Geräte- und Bedienkarten leer – die Zusammenfassung nennt die Ursache.
+> **HACS-Variante:** eine einzige JavaScript-Datei, keine Zusatzkarte, kein
+> `configuration.yaml`-Eintrag. Die Strategie `custom:stiebel-eltron` erzeugt die Views und
+> löst die Karten je Anlage selbst auf – **`auto-entities` wird dafür nicht benötigt**.
+> Die YAML-Variante mit `auto-entities` bleibt als zweiter Weg erhalten.
 
 ## Was du bekommst
 
@@ -29,109 +31,68 @@ Status-Ampel in jeder Karte:
 > Aufnahme der Übersicht mit zwei Anlagen. Wird nach dem ersten Live-Betrieb ergänzt;
 > bewusst **kein gestelltes Bild**. Siehe [Screenshots und GIFs](#screenshots-und-gifs).
 
-## In 10 Minuten startklar
+## Zwei Installationswege
 
-Voraussetzung: Home Assistant läuft und HACS ist bereits eingerichtet. Dann sind es fünf Schritte:
-
-| # | Schritt | Dauer |
+| | **Weg A – HACS + Strategie** | **Weg B – YAML-Dateien** |
 |---|---|---|
-| 1 | [Auto Entities installieren](#1-auto-entities-installieren-pflicht) | 1–2 Min. |
-| 2 | [Dashboard-Repository in HACS hinzufügen](#2-dashboard-repository-in-hacs-hinzufügen) | 2 Min. |
-| 3 | [Dashboard in `configuration.yaml` registrieren](#3-dashboard-in-configurationyaml-registrieren) und Home Assistant neu starten | 3–5 Min. |
-| 4 | [Gerät sichtbar machen](#4-gerät-sichtbar-machen) (nur bei ESPHome/MQTT/Modbus nötig) | 1 Min. |
-| 5 | [Dashboard öffnen](#5-dashboard-öffnen) | – |
+| Installation | HACS-Kategorie **Dashboard**, eine JS-Datei | Release-ZIP nach `config/www/community/…` kopieren |
+| Dashboard anlegen | 2 Zeilen Raw-Konfiguration (`strategy:`) | `lovelace:`-Block in `configuration.yaml` |
+| Zusatzkarte | **keine** | `auto-entities` nötig |
+| Neustart | nein | ja (YAML-Dashboard) |
+| Empfohlen für | alle, die es einfach wollen | YAML-Modus-Fans und eigene Anpassungen |
 
-Ohne HACS: einmalig [HACS installieren](https://hacs.xyz/docs/setup/download/) (ca. 10 Minuten,
-GitHub-Konto nötig). Das ist eine Voraussetzung dieses Dashboards, keine Alternative dazu.
+Beide Wege nutzen dieselben Karten und dieselbe Geräteerkennung. Ein Wechsel ist jederzeit
+möglich; die Entitäten bleiben unverändert.
 
-## Voraussetzungen
+## Weg A: HACS und Strategie
 
-- **Home Assistant ≥ 2024.10** – ältere Versionen kennen die `heading`-Karte nicht.
-- **HACS 2.x** mit verbundenem GitHub-Konto.
-- **Auto Entities** (`thomasloven/lovelace-auto-entities`) – die einzige Pflicht-Abhängigkeit.
-- **Eine eingebundene Wärmepumpe**, eine der drei Varianten:
+Voraussetzung: Home Assistant ab 2024.10 und HACS/Marketplace mit verbundenem GitHub-Konto.
 
-| Anbindung | Integration | Label nötig? |
-|---|---|---|
-| Stiebel Eltron ISG über Modbus | `stiebel_eltron_isg` (HACS) | nein |
-| ISG über HTTP (nur lesend) | `stiebel_eltron_http` (HACS) | nein |
-| ESPHome-/MQTT-/Modbus-Gateway mit eigener YAML | z. B. `esphome` | **ja**, `stiebel_eltron` am Gerät |
+### 1. Repository in HACS hinzufügen
 
-Alles läuft lokal. Das Dashboard fragt keine Cloud ab und sendet keine Daten nach außen.
+1. **Einstellungen → Marketplace** öffnen (bei HACS 2026.10 und älter: **HACS**).
+2. Oben rechts **⋮ → Benutzerdefinierte Repositories** (im Marketplace: **Add from link**).
+3. URL eintragen: `https://github.com/PuzzleFoco/stiebel-eltron-dashboard`
+4. Typ **Dashboard** wählen – **nicht** *Integration*.
+5. **Hinzufügen**, das Repository öffnen und **Herunterladen**.
 
-## 1. Auto Entities installieren (Pflicht)
-
-1. **HACS** öffnen → **Dashboard** (in HACS 1.x: *Frontend*, davor *Plugin*).
-2. In der Suche **`auto-entities`** eingeben – **mit Bindestrich**, sonst findet HACS nichts.
-3. Den Treffer **auto-entities** von *thomasloven* öffnen → **Herunterladen**.
-4. Fertig. HACS trägt die Ressource automatisch ein (Lovelace-Ressourcenmodus *storage*).
-
-Prüfen: **Einstellungen → Dashboards → ⋮ → Ressourcen**. Dort steht
-`/hacsfiles/lovelace-auto-entities/auto-entities.js?hacstag=…`.
-
-> **Sonderfall:** Wer seine Lovelace-Ressourcen im YAML-Modus pflegt, muss die Datei selbst
-> eintragen (`/hacsfiles/lovelace-auto-entities/auto-entities.js`, Typ `module`) – HACS kann
-> dann keine Ressourcen anlegen.
-
-## 2. Dashboard-Repository in HACS hinzufügen
-
-Das Dashboard selbst ist **kein** HACS-Standard-Repository, sondern wird als benutzerdefiniertes
-Repository eingetragen:
-
-1. **HACS** öffnen.
-2. Oben rechts auf die **drei Punkte (⋮)** → **Benutzerdefinierte Repositories**.
-3. Repository-URL eintragen: `https://github.com/PuzzleFoco/stiebel-eltron-dashboard`
-4. Als Typ **Dashboard** wählen – **nicht** *Integration*.
-5. **Hinzufügen**, das neue Repository öffnen und **Herunterladen**.
-
-HACS legt die Dateien unter `config/www/community/stiebel-eltron-dashboard/` ab:
+HACS legt genau eine Datei ab und registriert sie als Dashboard-Ressource:
 
 ```
 config/www/community/stiebel-eltron-dashboard/
-├── stiebel_eltron.yaml          ← Einstiegspunkt (wird gleich registriert)
-├── includes/views/*.yaml
-├── includes/cards/*.yaml
-└── stiebel-eltron-dashboard.js  ← HACS-Einstiegspunkt, wird von HA nicht geladen
+└── stiebel-eltron-dashboard.js
 ```
 
-> **Ein Neustart genügt.** HACS kopiert die Dateien sofort. Der Neustart nach Schritt 3 lädt
-> sowohl die neue Datei als auch den Dashboard-Eintrag – du musst nicht zweimal neu starten.
+Prüfen: **Einstellungen → Dashboards → ⋮ → Ressourcen**. Dort steht
+`/hacsfiles/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=…`.
 
 **Falscher Typ gewählt?** Dann meldet HACS `Repository structure … is not compliant` oder bietet
 gar keinen Download an. Repository in HACS entfernen (⋮ → *Entfernen*) und mit Typ **Dashboard**
-neu hinzufügen. Details: [Troubleshooting](#troubleshooting).
+neu hinzufügen.
 
-## 3. Dashboard in `configuration.yaml` registrieren
+### 2. Dashboard mit der Strategie anlegen
 
-Das Dashboard läuft im YAML-Modus. Eintrag in `configuration.yaml` (Pfad relativ zum
-Konfigurationsverzeichnis):
+1. **Einstellungen → Dashboards → Dashboard hinzufügen** → *Neues Dashboard von Grund auf*.
+   Titel **Stiebel Eltron**, URL **`stiebel-eltron`** (der Bindestrich ist Pflicht).
+2. Dashboard öffnen → **Stift** (Bearbeiten) → **⋮ → Raw-Konfigurationseditor**.
+3. Den vorhandenen Inhalt durch diese zwei Zeilen ersetzen:
 
-```yaml
-lovelace:
-  dashboards:
-    stiebel-eltron:
-      mode: yaml
-      title: Stiebel Eltron
-      icon: mdi:heat-pump
-      show_in_sidebar: true
-      filename: www/community/stiebel-eltron-dashboard/stiebel_eltron.yaml
-```
+   ```yaml
+   strategy:
+     type: custom:stiebel-eltron
+   views: []
+   ```
 
-Danach **Entwicklerwerkzeuge → YAML → Konfiguration prüfen** und Home Assistant **neu starten**.
-Das Dashboard erscheint in der Seitenleiste.
+4. **Speichern**. Die Strategie erzeugt sofort die drei Views.
 
-Drei Regeln, an denen es sonst klemmt:
+> **Warum `stiebel-eltron`?** Die Karten verlinken fest auf `/stiebel-eltron/geraete` und
+> `/stiebel-eltron/bedienung`. Ein anderer URL-Pfad ist erlaubt, macht aber diese Links zu 404ern.
 
-- **Der Schlüssel muss `stiebel-eltron` heißen.** Er ist der URL-Pfad; die Karten verlinken
-  fest auf `/stiebel-eltron/geraete` und `/stiebel-eltron/bedienung`. Ein anderer Name ist
-  erlaubt, macht aber alle Links im Dashboard zu 404ern. Ein Bindestrich ist bei Home Assistant
-  Pflicht.
-- **Nicht doppelt anlegen.** Gibt es in `configuration.yaml` bereits einen `lovelace:`-Block,
-  den `stiebel-eltron:`-Eintrag dort unter `dashboards:` ergänzen – kein zweiter `lovelace:`-Schlüssel.
-- **`filename` ohne führenden Schrägstrich** und exakt wie oben – der Pfad enthält den
-  Repository-Namen, den HACS beim Herunterladen angelegt hat.
+> **Die Strategie ist keine statische Kopie.** Sie liest das Geräteregister bei jedem Aufbau und
+> erzeugt für jedes erkannte Gerät eine eigene Karte. Ein zweites Gerät braucht keine
+> YAML-Änderung. „Take control“ ist möglich, macht das Dashboard aber statisch.
 
-## 4. Gerät sichtbar machen
+### 3. Gerät sichtbar machen
 
 | Deine Anbindung | Was zu tun ist |
 |---|---|
@@ -162,7 +123,7 @@ Merkmale als Entitäten hat: `*_aussentemp`, `*_aussentemperatur`, `*_outside_te
 `*_vorlaufisttemp_wp`, `*_speicheristtemp`, `*_programmschalter`, `*_verdichter`.
 Lüftungsgeräte (z. B. eine LWZ) erfüllen das typischerweise nicht und tauchen bewusst nicht auf.
 
-## 5. Dashboard öffnen
+### 4. Dashboard öffnen
 
 Seitenleiste → **Stiebel Eltron**, oder direkt `/stiebel-eltron/uebersicht`.
 
@@ -171,9 +132,73 @@ Beim ersten Öffnen entscheidet die Kopfzeile, ob alles passt:
 | Anzeige | Bedeutung |
 |---|---|
 | „**1 Anlage** erkannt · 1 Karte“ | fertig. |
-| „**1 Anlage** erkannt · 0 Karten“ + ⚠️-Hinweis | Gerät gefunden, aber nicht gelabelt → Schritt 4. |
+| „**1 Anlage** erkannt · 0 Karten“ + ⚠️-Hinweis | Gerät gefunden, aber nicht gelabelt → Schritt 3. |
 | „*Noch keine Wärmepumpe erkannt*“ | keine Anlage gefunden → [Troubleshooting](#troubleshooting). |
-| „Custom element doesn't exist: auto-entities“ | auto-entities fehlt → Schritt 1. |
+| „Custom element doesn't exist: ll-strategy-dashboard-stiebel-eltron“ | Ressource nicht geladen → hart neu laden; HACS-Download prüfen. |
+
+## Weg B: YAML-Variante (manuell)
+
+Diese Variante nutzt die YAML-Dateien direkt. Sie braucht `auto-entities` und einen
+`configuration.yaml`-Eintrag, dafür ist die Dashboard-Konfiguration im YAML-Modus vollständig
+versionierbar.
+
+### B1. Auto Entities installieren (Pflicht)
+
+1. **HACS** öffnen → **Dashboard** (in HACS 1.x: *Frontend*, davor *Plugin*).
+2. In der Suche **`auto-entities`** eingeben – **mit Bindestrich**, sonst findet HACS nichts.
+3. Den Treffer **auto-entities** von *thomasloven* öffnen → **Herunterladen**.
+4. Fertig. HACS trägt die Ressource automatisch ein (Lovelace-Ressourcenmodus *storage*).
+
+Prüfen: **Einstellungen → Dashboards → ⋮ → Ressourcen**. Dort steht
+`/hacsfiles/lovelace-auto-entities/auto-entities.js?hacstag=…`.
+
+> **Sonderfall:** Wer seine Lovelace-Ressourcen im YAML-Modus pflegt, muss die Datei selbst
+> eintragen (`/hacsfiles/lovelace-auto-entities/auto-entities.js`, Typ `module`) – HACS kann
+> dann keine Ressourcen anlegen.
+
+### B2. Dateien installieren
+
+Release-ZIP von der [Release-Seite](https://github.com/PuzzleFoco/stiebel-eltron-dashboard/releases)
+herunterladen (`Source code (zip)`), den Inhalt von `dist/` nach
+`config/www/community/stiebel-eltron-dashboard/` entpacken. Erwartet:
+
+```
+config/www/community/stiebel-eltron-dashboard/
+├── stiebel_eltron.yaml
+├── includes/views/*.yaml
+├── includes/cards/*.yaml
+├── README.md
+└── hacs.json
+```
+
+### B3. Dashboard in `configuration.yaml` registrieren
+
+```yaml
+lovelace:
+  dashboards:
+    stiebel-eltron:
+      mode: yaml
+      title: Stiebel Eltron
+      icon: mdi:heat-pump
+      show_in_sidebar: true
+      filename: www/community/stiebel-eltron-dashboard/stiebel_eltron.yaml
+```
+
+Danach **Entwicklerwerkzeuge → YAML → Konfiguration prüfen** und Home Assistant **neu starten**.
+Das Dashboard erscheint in der Seitenleiste.
+
+Drei Regeln, an denen es sonst klemmt:
+
+- **Der Schlüssel muss `stiebel-eltron` heißen.** Er ist der URL-Pfad; die Karten verlinken
+  fest auf `/stiebel-eltron/geraete` und `/stiebel-eltron/bedienung`.
+- **Nicht doppelt anlegen.** Gibt es in `configuration.yaml` bereits einen `lovelace:`-Block,
+  den `stiebel-eltron:`-Eintrag dort unter `dashboards:` ergänzen.
+- **`filename` ohne führenden Schrägstrich** und exakt wie oben.
+
+### B4. Gerät sichtbar machen und öffnen
+
+Wie in [Weg A, Schritt 3 und 4](#3-gerät-sichtbar-machen). Der einzige Unterschied: In der
+YAML-Variante fehlen Geräte- und Bedienkarten komplett, wenn `auto-entities` nicht geladen ist.
 
 ## Die Entity-Präfix-Konvention
 
@@ -266,10 +291,12 @@ PNG ≤ 1600 px Breite. Sobald ein Bild vorliegt, hier und in `hacs.json`/README
 
 | Symptom | Ursache | Lösung |
 |---|---|---|
-| `Custom element doesn't exist: auto-entities` | Pflicht-Karte fehlt oder Ressource nicht geladen | Schritt 1; danach Browser-Seite **hart** neu laden (Strg/Cmd+Shift+R) |
-| Dashboard fehlt in der Seitenleiste | `lovelace:`-Eintrag fehlt, YAML-Fehler oder nicht neu gestartet | `configuration.yaml` prüfen, **Konfiguration prüfen**, neu starten; `show_in_sidebar: true` |
-| „Error loading dashboard“ | YAML nicht ladbar (Tippfehler, falscher Pfad, Dateien fehlen) | Pfad `www/community/stiebel-eltron-dashboard/stiebel_eltron.yaml` prüfen; HACS-Download wiederholen |
-| Links führen auf 404 | Dashboard-Schlüssel heißt nicht `stiebel-eltron` | Schlüssel umbenennen (Schritt 3) |
+| `Custom element doesn't exist: ll-strategy-dashboard-stiebel-eltron` | Ressource nicht geladen oder HACS-Download unvollständig | Ressourcen-Eintrag prüfen, Seite hart neu laden (Strg/Cmd+Shift+R), HACS-Download wiederholen |
+| Strategie-Dashboard bleibt leer | Tippfehler im Raw-Editor oder Einrückung falsch | exakt `strategy:\n  type: custom:stiebel-eltron` (zwei Leerzeichen) und `views: []` |
+| `Custom element doesn't exist: auto-entities` | nur YAML-Variante: Pflicht-Karte fehlt oder Ressource nicht geladen | `auto-entities` installieren (B1); Seite hart neu laden |
+| Dashboard fehlt in der Seitenleiste | nur YAML-Variante: `lovelace:`-Eintrag fehlt, YAML-Fehler oder nicht neu gestartet | `configuration.yaml` prüfen, **Konfiguration prüfen**, neu starten |
+| „Error loading dashboard“ | YAML nicht ladbar (Tippfehler, falscher Pfad, Dateien fehlen) | Pfad `www/community/stiebel-eltron-dashboard/stiebel_eltron.yaml` prüfen |
+| Links führen auf 404 | Dashboard-URL heißt nicht `stiebel-eltron` | URL-Pfad umbenennen (Weg A, Schritt 2) |
 | „Noch keine Wärmepumpe erkannt“ | keine Anlage erkannt: Label fehlt, Integration nicht geladen oder kein Anker | Label setzen, Config Entry prüfen, Außentemperatur-Entität prüfen |
 | „1 Anlage(n) ohne Karte“ | Gerät erkannt, aber nicht gelabelt (ESPHome/MQTT/Modbus) | Label `stiebel_eltron` am **Gerät** setzen |
 | Karte fehlt, Gerät wird unter „Ohne Anker“ genannt | keine `*_aussentemp`/`*_aussentemperatur`/`*_outside_temperature` | Entität umbenennen (Suffix) oder Anbindung prüfen |
@@ -285,29 +312,35 @@ PNG ≤ 1600 px Breite. Sobald ein Bild vorliegt, hier und in `hacs.json`/README
 <details>
 <summary><strong>Diagnose in fünf Minuten</strong></summary>
 
-1. **Ist die Datei da?** Datei-Editor/SSH: `ls config/www/community/stiebel-eltron-dashboard/`
-   – erwartet: `stiebel_eltron.yaml` **und** `includes/`.
-2. **Ist das Dashboard registriert?** `configuration.yaml` → `lovelace.dashboards.stiebel-eltron`
-   mit `mode: yaml` und korrektem `filename`.
+1. **Ist die Ressource da?** Einstellungen → Dashboards → Ressourcen: Eintrag
+   `stiebel-eltron-dashboard.js` vorhanden und aktiv? (Weg A)
+2. **Ist das Dashboard registriert?** Raw-Konfiguration enthält `strategy: custom:stiebel-eltron`
+   (Weg A) bzw. `lovelace.dashboards.stiebel-eltron` mit `mode: yaml` (Weg B).
 3. **Kennt HA das Gerät?** Einstellungen → Geräte & Dienste → Geräte → Wärmepumpe öffnen:
    Hat es das Label `stiebel_eltron`? Haben die Entitäten die erwarteten Suffixe?
-4. **Ist auto-entities geladen?** Einstellungen → Dashboards → Ressourcen → Eintrag
-   `auto-entities.js` vorhanden und **aktiv**?
+4. **Nur YAML-Variante:** Ist `auto-entities` als Ressource geladen?
 5. **Browser-Cache?** Hart neu laden; danach Home Assistant neu starten.
 
 </details>
 
 ## Updates und Deinstallation
 
-**Update:** HACS zeigt neue Releases unter *Aktualisierungen* an. Herunterladen, Seite neu laden –
-die Dashboard-YAML wird bei jeder Anfrage neu gelesen, ein Neustart ist dafür nicht nötig.
-Eigene Anpassungen gehören **nicht** in `config/www/community/…`: HACS überschreibt sie beim
-nächsten Update.
+**Update (Weg A):** HACS zeigt neue Releases unter *Aktualisierungen*. Herunterladen, Seite neu
+laden – die Strategie liefert beim nächsten Aufbau die neuen Views. Ein Neustart ist nicht nötig.
 
-**Deinstallieren:** Dashboard-Eintrag aus `configuration.yaml` entfernen, Home Assistant neu
-starten, danach das Repository in HACS entfernen. Der Ordner
-`config/www/community/stiebel-eltron-dashboard/` wird von HACS mitgelöscht; Reste manuell
-entfernen. `auto-entities` kann bleiben, wenn es anderswo genutzt wird.
+**Update (Weg B):** Quell-ZIP erneut herunterladen und `dist/` ersetzen; die YAML wird bei jeder
+Anfrage neu gelesen, ein Neustart ist dafür nicht nötig.
+
+**Deinstallieren (Weg A):** Dashboard löschen (Einstellungen → Dashboards → ⋮ → Löschen), danach
+das Repository in HACS entfernen.
+
+**Deinstallieren (Weg B):** Dashboard-Eintrag aus `configuration.yaml` entfernen, Home Assistant
+neu starten, danach das Repository in HACS entfernen. `auto-entities` kann bleiben, wenn es
+anderswo genutzt wird.
+
+Eigene Anpassungen gehören **nicht** in `config/www/community/…`: HACS überschreibt sie beim
+nächsten Update. Für eigene Änderungen das Repository forken oder „Take control“ im Dashboard
+verwenden.
 
 ## Entwicklung
 
@@ -315,10 +348,12 @@ entfernen. `auto-entities` kann bleiben, wenn es anderswo genutzt wird.
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 
-python scripts/sync_jinja.py      # Makros aus templates/jinja/ in die Karten
-python scripts/sync_dist.py       # dashboards/ -> dist/
-python scripts/validate.py        # hacs.json, Includes, Kartenstruktur, README-Pfade, dist-Sync
-python scripts/build_release.py --version 0.2.0
+python scripts/sync_jinja.py       # Makros aus templates/jinja/ in die Karten
+python scripts/sync_dist.py        # dashboards/ -> dist/
+python scripts/build_strategy.py   # dashboards/ -> stiebel-eltron-dashboard.js
+python scripts/validate.py         # hacs.json, Includes, Kartenstruktur, README-Pfade, dist-Sync
+node scripts/test_strategy.mjs     # Strategie gegen zwei simulierte Anlagen
+python scripts/build_release.py --version 0.4.0
 
 # Mit echtem Home-Assistant-Loader und Abnahmetest (zwei simulierte Anlagen)
 uv run --with homeassistant python scripts/check_ha_parse.py
@@ -327,22 +362,28 @@ uv run --with homeassistant python scripts/render_test.py
 
 `scripts/render_test.py` rendert die Karten mit Home Assistants eigener Template-Umgebung gegen
 eine simulierte Geräteregistry (zwei Anlagen mit unterschiedlichen Präfixen, eine
-`unavailable`-Anlage, eine rein lesende HTTP-Anlage) und prüft die Abnahmekriterien. Die
-durchgeführte Abnahme steht in [`docs/acceptance.md`](docs/acceptance.md).
+`unavailable`-Anlage, eine rein lesende HTTP-Anlage). `scripts/test_strategy.mjs` prüft die
+HACS-Strategie: Geräteerkennung, `_2`-Suffixe, Ausschluss von HTTP-Anlagen aus der Bedienung und
+das vollständige Auflösen der `auto-entities`-Karten. Die durchgeführte Abnahme steht in
+[`docs/acceptance.md`](docs/acceptance.md).
 
-Release: Tag `vX.Y.Z` pushen – der Workflow baut das Archiv und veröffentlicht es mit Prüfsumme.
+Release: Tag `vX.Y.Z` pushen – der Workflow prüft das Repository, baut die Strategie-Datei und
+das YAML-ZIP und veröffentlicht beides mit Prüfsumme.
 
 ## Repository-Aufbau
 
 | Pfad | Zweck |
 |---|---|
-| `dashboards/stiebel_eltron.yaml` | Einstiegspunkt: Titel + drei Views (nur `!include`) |
+| `stiebel-eltron-dashboard.js` | **HACS-Auslieferung:** generierte Strategie + aufgelöste Dashboard-Konfiguration |
+| `dashboards/stiebel_eltron.yaml` | Quelle: Titel + drei Views (nur `!include`) |
 | `dashboards/includes/views/` | je eine View (Übersicht, Geräte, Bedienung) |
 | `dashboards/includes/cards/` | Karten und `auto-entities`-Vorlagen |
 | `dashboards/templates/jinja/` | kanonische Makros (Resolver, Status, Discovery, Funktionskatalog) |
-| `dist/` | Auslieferung an HACS: Dashboard-YAML (gespiegelt) + `.js`-Einstiegspunkt |
+| `dist/` | YAML-Variante: gespiegelte Dashboard-Dateien für das Release-ZIP |
 | `hacs.json` | HACS-Metadaten (Name, Mindest-HA-Version, Einstiegspunkt) |
-| `scripts/` | `sync_jinja.py`, `sync_dist.py`, `validate.py`, `check_ha_parse.py`, `render_test.py`, `build_release.py` |
+| `scripts/strategy_runtime.js` | Laufzeit der Strategie (Auflösen der Karten je Anlage) |
+| `scripts/build_strategy.py` | baut `stiebel-eltron-dashboard.js` aus YAML + Laufzeit |
+| `scripts/` | `sync_jinja.py`, `sync_dist.py`, `validate.py`, `check_ha_parse.py`, `render_test.py`, `build_release.py`, `test_strategy.mjs` |
 | `docs/design.md` | verbindliches Design: Discovery, Resolver, Karten, Degradation |
 | `docs/architecture.md` | Entscheidungen: HACS-Kategorie, Layout, Release-Weg |
 | `docs/acceptance.md` | Abnahmeprotokoll mit offenen Punkten und Reproduktionsschritten |
