@@ -578,3 +578,56 @@ erhalten und sind weiterhin vollständig getestet.
 | O-04 zweite physische Anlage | ⬜ offen (weiterhin simuliert) |
 | O-05 Neustart-Persistenz | ⬜ offen (kein Neustart durchgeführt) |
 | O-06 10-Minuten-Ziel | ⬜ offen (nicht mit Testperson gemessen) |
+
+## Nachtrag v0.4.2 (2026-11-11)
+
+**Umgebung:** Home Assistant 2026.11.1, deutsch, Produktivsystem (Geräteregistry, Template-Engine).
+**Repository:** <https://github.com/PuzzleFoco/stiebel-eltron-dashboard>, Release **v0.4.2**.
+
+Dieser Nachtrag prüft das **ausgelieferte Bundle** (`stiebel-eltron-dashboard.js`, nicht die
+YAML-Quelle) gegen die **echte** Geräteregistry — nicht gegen eine Attrappe.
+
+### Vorgehen
+
+1. Geräte- und Entitätsliste der Zielanlage aus der laufenden HA gelesen
+   (`device_entities`, `device_attr`, `label_devices`): 1 Gerät, 120 Entitäten, Label
+   `stiebel_eltron`.
+2. Mit genau diesen Daten `generate()` des veröffentlichten Bundles in Node ausgeführt
+   (Registry-Attrappe nur für `hass.devices`/`hass.entities`, sonst unverändert).
+3. Jede erzeugte Markdown-Karte durch die **Template-Engine der Ziel-HA** gerendert
+   (`ha_eval_template`, also HAs eigener Jinja-Sandbox mit echten Zuständen).
+
+### Ergebnis
+
+| Prüfpunkt | Ergebnis | Beleg |
+|---|---|---|
+| Gerät erkannt | ✅ | Label `stiebel_eltron` an „ESP32-PoE Technik“, Signatur 5/7 (`verdichter`, `programmschalter`, `vorlaufisttemp_wp`, `aussentemp`, `speicheristtemp`) |
+| Lüftung ausgeschlossen | ✅ | „Lüftung“ (LWZ): nur 1 Signaturtreffer + eigener Anker → keine Wärmepumpe |
+| Strategie erzeugt Views | ✅ | 3 Views (Übersicht, Geräte, Bedienung), Abschnittstyp `sections` |
+| Eine Karte je Anlage | ✅ | Übersicht 1 Gerätekarte, Geräte 1 Detailkarte, keine `this.entity_id`-Reste |
+| Konkrete Karten statt auto-entities | ✅ | 0 `custom:auto-entities` im Ergebnis; Bedienung: 5 Tile-Karten + 2 Hinweise |
+| Karten rendern live | ✅ | 6/6 Markdown-Karten ohne Template-Fehler |
+| Werte exakt | ✅ | Außen 5,5 °C · Vorlauf WP 23,9 °C · Rücklauf 21,6 °C · Warmwasser 43,6/48,0 °C · Modus Komfort · Verdichter läuft · Starts 4921 |
+| Einheiten/Dezimalkomma | ✅ | „5,5 °C“, „2,0 bar“, „0,35“ (Heizkurve), „48,0“ ohne Einheit bei number-Entitäten |
+| Sentinels gefiltert | ✅ | Gerät liefert `taupunkttemp = -3276,8 °C` und `aussentemp_sommerbetrieb = 32768 °C`; Karte zeigt „—“ statt Fantasiewerten |
+| Zeilen ohne Entität | ✅ | Detailkarte blendet Puffersoll, SG Ready, Abtauung, Heizbetrieb, Warmwasserbetrieb aus (vorher 16 × „—“) |
+| „—“ nur bei echter Lücke | ✅ | Raumtemperatur/-feuchte `unknown` → „—“, bleibt sichtbar |
+| Bundle im Betrieb | ✅ | `/local/community/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=stiebel-v042`, HTTP 200, 60.909 Byte, SHA256 `3bbf07f5…b1f07` = Repository-Datei |
+| Dashboard nutzt Strategie | ✅ | `stiebel-eltron`: `strategy_dashboard: true`, Konfiguration 60 Byte statt 47.649 Byte |
+| YAML-Fallback vorhanden | ✅ | `stiebel-eltron-yaml` (ausgeblendet), 3 Views, alle `render_paths.stable` |
+| Repository-Checks | ✅ | `validate.py`, `sync_jinja.py --check`, `sync_dist.py --check`, `build_strategy.py --check`, `test_strategy.mjs` 16/16 |
+| HA-Abnahmetest | ✅ | `uv run --with homeassistant python scripts/render_test.py` → 65/65 (echte HA-`TemplateEnvironment`) |
+| CI | ✅ | Validate + Release für v0.4.1 grün (v0.4.2 nach dem Push geprüft) |
+
+### Weiterhin offen
+
+| Issue | Status |
+|---|---|
+| O-04 zweite physische Anlage | ⬜ offen — Mehrgerätefall in `test_strategy.mjs` und `render_test.py` simuliert |
+| O-05 Neustart-Persistenz | ⬜ offen — kein HA-Neustart durchgeführt |
+| O-06 10-Minuten-Ziel | ⬜ offen — nicht mit Testperson gemessen |
+| Visueller Nachweis im Browser | ⬜ offen — HA-Frontend verlangt Anmeldung, es liegen keine Zugangsdaten vor. Belegt sind Strategie-Ausführung, Karteninhalt (live gerendert) und ausgelieferte Datei, **nicht** das gemalte Bild. |
+
+> **Wenn die Strategie im Browser nicht lädt** (`Timeout waiting for strategy element
+> ll-strategy-dashboard-stiebel-eltron`): Seite hart neu laden (Strg+Shift+R). Bleibt es dabei,
+> ist `/stiebel-eltron-yaml` die funktionierende YAML-Fassung desselben Dashboards.

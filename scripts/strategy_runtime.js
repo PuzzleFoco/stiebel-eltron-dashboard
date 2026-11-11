@@ -106,8 +106,15 @@ function expandAutoEntities(card, hass) {
       if (exclude.some((part) => matchesRule(hass, entity, part))) continue;
 
       const concrete = replaceEntityToken(options, entity.entity_id);
-      // auto-entities setzt bei jeder Treffer-Karte selbst `entity:`.
-      if (concrete && typeof concrete === "object" && !concrete.entity) {
+      // auto-entities setzt bei jeder Treffer-Karte selbst `entity:`. Markdown-
+      // Karten brauchen es nicht — ihr Inhalt ist bereits aufgelöst — und
+      // unbekannte Schlüssel provozieren dort nur Warnungen.
+      if (
+        concrete &&
+        typeof concrete === "object" &&
+        !concrete.entity &&
+        concrete.type !== "markdown"
+      ) {
         concrete.entity = entity.entity_id;
       }
       found.push({

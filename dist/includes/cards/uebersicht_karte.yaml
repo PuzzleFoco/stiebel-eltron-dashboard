@@ -41,17 +41,39 @@ content: |
 
   {%- macro val(ents, suffixes) -%}{{- val_e(pick(ents, suffixes) | trim) -}}{%- endmacro -%}
 
-  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung. -#}
+  {#- Plausibilität je Einheit. Fängt die 0x8000-Sentinels der Anlage ab
+      (z. B. -3276,8 °C für „nicht verfügbar“), die sonst als Messwert erschienen.
+      Grenzen sind physikalisch großzügig: Heizungswasser bleibt zwischen -60 und 150 °C. -#}
+  {%- macro plausible(f, u) -%}
+    {%- if u == '°C' -%}{{ 1 if -60 <= f <= 150 else 0 }}
+    {%- elif u == '%' -%}{{ 1 if 0 <= f <= 100 else 0 }}
+    {%- elif u == 'bar' -%}{{ 1 if 0 <= f <= 40 else 0 }}
+    {%- else -%}1{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Tabellenzeile, die nur erscheint, wenn die Anlage die Größe überhaupt hat.
+      `exists` ist die Verkettung von has(...)-Aufrufen; leer = Zeile weglassen. -#}
+  {%- macro mrow(label, value, exists) -%}
+  {%- if exists | trim %}{{ '\n' }}| {{ label }} | {{ value }} |{% endif -%}
+  {%- endmacro -%}
+
+  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung.
+      Unplausible Werte (Sentinels) werden wie fehlende Werte zu „—“ (nicht 0). -#}
   {%- macro num_e(e, prec=1, unit=none) -%}
     {%- if e and has_value(e) -%}
       {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
-      {%- if prec > 0 -%}
-        {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
-        {{- (('%.' ~ prec ~ 'f') | format(states(e) | float(0))) | replace('.', ',') -}}
+      {%- set f = states(e) | float(0) -%}
+      {%- if plausible(f, u) | trim != '1' -%}
+        {{- '—' -}}
       {%- else -%}
-        {{- (states(e) | float(0)) | round(0) | int -}}
+        {%- if prec > 0 -%}
+          {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
+          {{- (('%.' ~ prec ~ 'f') | format(f)) | replace('.', ',') -}}
+        {%- else -%}
+          {{- f | round(0) | int -}}
+        {%- endif -%}
+        {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
       {%- endif -%}
-      {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
     {%- else -%}
       {{- '—' -}}
     {%- endif -%}
@@ -59,6 +81,11 @@ content: |
 
   {%- macro num(ents, suffixes, prec=1, unit=none) -%}
     {{- num_e(pick(ents, suffixes) | trim, prec, unit) -}}
+  {%- endmacro -%}
+
+  {#- Zwei Zahlen als „Ist / Soll“ — hält die Kartenzeilen kurz. -#}
+  {%- macro pair(ents, a, b, prec=1) -%}
+    {{- (num(ents, a, prec) | trim) ~ ' / ' ~ (num(ents, b, prec) | trim) -}}
   {%- endmacro -%}
 
   {#- Ganzzahl ohne Dezimalkomma (Starts, Laufzeiten, Fehlernummer). -#}

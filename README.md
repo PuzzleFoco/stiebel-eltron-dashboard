@@ -8,7 +8,7 @@ YAML-Änderung.
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PuzzleFoco&repository=stiebel-eltron-dashboard&category=plugin)
 
-> **Status: v0.4.1** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
+> **Status: v0.4.2** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
 > Label, Integration oder Signatur · fehlende Werte werden sichtbar zu „—“ statt zu 0.
 >
 > **HACS-Variante:** eine einzige JavaScript-Datei, keine Zusatzkarte, kein
@@ -26,6 +26,12 @@ YAML-Änderung.
 
 Status-Ampel in jeder Karte:
 🟢 Bereit · 🔵 Verdichter läuft · 🟡 EVU-Sperre · 🔴 Störung · ⚪ Keine Daten
+
+**Jede Anlage zeigt nur, was sie hat.** Größen, die eine Anlage nicht liefert, fehlen in
+der Detailkarte — statt eine lange Spalte mit Strichen zu füllen. Ein „—“ heißt dagegen:
+die Entität existiert, liefert aber gerade keinen Wert (`unknown`/`unavailable`) oder einen
+unplausiblen Sentinelsignal-Wert wie `-3276,8 °C`. Ein zweites Gerät mit anderem
+Entity-Umfang bekommt automatisch seine eigene, passende Karte.
 
 > 📷 **Screenshot-Platzhalter** – `docs/images/screenshot-uebersicht.png`
 > Aufnahme der Übersicht mit zwei Anlagen. Wird nach dem ersten Live-Betrieb ergänzt;

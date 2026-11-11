@@ -282,61 +282,52 @@ Damit ist genau der Fall belegt, an dem ein präfixbasiertes Dashboard scheitern
 
 ### 4.1 Makros
 
-Alle Karten benutzen dieselben vier Basis-Makros (plus `dot` für die Ampel). Sie liegen in
+Alle Karten benutzen dieselben Makros. Sie liegen in
 `dashboards/templates/jinja/resolver.j2` und werden per `sync_jinja.py` in die Karten kopiert.
 
 ```jinja
-{# Findet die erste Entity im Gerät, deren object_id auf einen Kandidaten endet. #}
-{%- macro find(dev, suffixes, domain) -%}
-  {%- set ns = namespace(e='') -%}
-  {%- for cand in device_entities(dev) | sort -%}
-    {%- if not ns.e and cand.startswith(domain ~ '.') -%}
-      {%- for s in suffixes -%}
-        {%- if not ns.e and cand.endswith('_' ~ s) -%}{%- set ns.e = cand -%}{%- endif -%}
-      {%- endfor -%}
-    {%- endif -%}
-  {%- endfor -%}
-  {{ ns.e }}
-{%- endmacro -%}
+{# Erste Entität, deren object_id auf einen der Suffixe endet (inkl. _2/_3). #}
+{%- macro pick(ents, suffixes) -%} … {%- endmacro -%}
+{%- macro has(ents, suffixes) -%}  … {%- endmacro -%}   {# „1“, wenn vorhanden #}
 
-{# Rohwert oder „—“; nie 0 für unavailable. #}
-{%- macro val(dev, suffixes, domain='sensor') -%}
-  {%- set e = find(dev, suffixes, domain) | trim -%}
-  {%- if e and has_value(e) -%}{{ states(e) }}{%- else -%}—{%- endif -%}
-{%- endmacro -%}
+{# Rohwert oder „—“; unavailable/unknown/leer werden zu „—“ (nicht 0). #}
+{%- macro val(ents, suffixes) -%} … {%- endmacro -%}
 
-{# Zahl mit Geräte-Einheit (oder fester Einheit), deutsches Dezimalkomma. #}
-{%- macro num(dev, suffixes, prec=1, unit=None, domain='sensor') -%}
-  {%- set e = find(dev, suffixes, domain) | trim -%}
-  {%- if e and has_value(e) -%}
-    {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
-    {{- (states(e) | float(0)) | round(prec) | string | replace('.', ',') -}}
-    {{- (' ' ~ u) if u else '' -}}
-  {%- else -%}—{%- endif -%}
-{%- endmacro -%}
+{# Zahl mit Geräte-Einheit, deutsches Dezimalkomma, Sentinel-Schutz. #}
+{%- macro num_e(e, prec=1, unit=none) -%} … {%- endmacro -%}
+{%- macro num(ents, suffixes, prec=1, unit=none) -%} … {%- endmacro -%}
+
+{# Plausibilität je Einheit; unplausible Werte werden wie fehlende behandelt. #}
+{%- macro plausible(f, u) -%} … {%- endmacro -%}
+
+{# Tabellenzeile, die nur erscheint, wenn die Anlage die Größe hat. #}
+{%- macro mrow(label, value, exists) -%} … {%- endmacro -%}
 
 {# Binärwert als ja/nein/—. #}
-{%- macro bin(dev, suffixes) -%}
-  {%- set e = find(dev, suffixes, 'binary_sensor') | trim -%}
-  {%- if e and has_value(e) -%}{{ 'ja' if is_state(e, 'on') else 'nein' }}{%- else -%}—{%- endif -%}
-{%- endmacro -%}
+{%- macro bin(ents, suffixes) -%} … {%- endmacro -%}
 ```
 
 **Regeln:**
 
-1. **Domain ist Pflicht.** `find(..., 'sensor')` verhindert, dass ein `binary_sensor` namens
-   `…_verdichter` den Sensor `…_verdichter_starts` überschreibt.
+1. **Domain vorher filtern.** Die Karten übergeben `sens`, `bsens`, `sels`, `nums`, `sws`,
+   `clims` (`all | select('match', '^sensor\\.') | list`). Dadurch kann ein `binary_sensor`
+   `…_verdichter` den Sensor `…_verdichter_starts` nicht überschreiben, und der Resolver
+   bleibt ein reiner Suffix-Vergleich.
 2. **Erster Treffer in Kandidatenreihenfolge.** Spezifischere Suffixe stehen vorn
    (`vorlaufisttemp_wp` vor `vorlauf`).
-3. **Exakter Suffix.** `endswith('_aussentemp')` matcht nicht `_aussentemp_sommerbetrieb`.
+3. **Exakter Suffix.** `endswith('_aussentemp')` matcht nicht `_aussentemp_sommerbetrieb`;
+   das HA-Duplikatsuffix `_2`/`_3` (zweiter Config Entry) wird toleriert.
 4. **`has_value()` statt `state != 'unavailable'`.** Deckt auch `unknown` und leere Strings ab.
 5. **Keine Einheiten raten.** `num()` nimmt die Einheit aus der Entität; bei lokalen Zählern ist
    genau das wichtig (kWh vs. MWh, Research § 9.3).
-6. **Deterministische Sortierung.** `device_entities(dev) | sort`, damit der erste Treffer bei
+6. **Sentinels sind keine Messwerte.** Die Anlage liefert `0x8000` (× 0,1 → `-3276,8`)
+   für „nicht verfügbar“, z. B. bei Taupunkt, Start-/Min-/Max-Temperatur. `plausible()`
+   verwirft Werte außerhalb −60…150 °C, 0…100 % und 0…40 bar; sie erscheinen als „—“.
+7. **„Nicht vorhanden“ ≠ „keine Daten“.** `mrow()` blendet Zeilen aus, deren Entität es im
+   Gerät nicht gibt. „—“ bleibt für vorhandene Entitäten ohne lesbaren Wert — so bleibt
+   sichtbar, ob eine Anlage eine Größe nicht liefert oder gerade nicht antwortet.
+8. **Deterministische Sortierung.** `device_entities(dev) | sort`, damit der erste Treffer bei
    mehreren Kandidaten reproduzierbar ist.
-7. **Domain bei Nicht-Sensoren explizit setzen.** `num(..., domain='number')` für Sollwerte,
-   `val(..., 'select')` für die Betriebsart, `find(..., 'climate')` für den Heizkreis. Der
-   Default `sensor` findet diese Entitäten sonst nicht.
 
 ### 4.2 Funktionskatalog (kartenrelevant)
 

@@ -4,6 +4,30 @@ Alle nennenswerten Änderungen an diesem Repository.
 Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.4.2] - 2026-11-11
+
+### Behoben
+
+- **Unplausible Gerätewerte erschienen als Messwert.** Die Anlage liefert für „nicht
+  verfügbar“ das Sentinelsignal `0x8000`; skaliert ergibt das `-3276,8 °C` (Taupunkt,
+  Start-/Min-/Max-Temperatur) bzw. `3276,8 °C`. Solche Werte zeigt das Dashboard jetzt
+  wie fehlende Werte als „—“ an. Grenzen je Einheit: −60…150 °C, 0…100 %, 0…40 bar;
+  andere Einheiten bleiben ungeprüft.
+- **Zeilen ohne Entität erzeugten eine „—“-Wand.** Größen, die eine Anlage gar nicht
+  liefert (z. B. Puffersollwert, SG Ready, Abtauung), werden in der Detailkarte
+  ausgeblendet. „—“ bleibt für Werte, die es gibt, die aber gerade nicht lesbar sind —
+  der Unterschied zwischen „nicht vorhanden“ und „keine Daten“ bleibt sichtbar.
+- **Markdown-Karten bekamen ein überflüssiges `entity:`.** Die Strategie setzt den
+  Schlüssel nur noch für Karten, die ihn brauchen (Tile, Entity); der Karteninhalt ist
+  bereits auf die Geräteentität aufgelöst.
+- Die Detailkarte zeigt bei ESPHome-Geräten nicht mehr das Board (`Espressif esp32dev`)
+  als Anlagenmodell.
+
+### Geändert
+
+- Detailkarte: neue Jinja-Makros `plausible()` und `mrow()` im Resolver-Vertrag
+  (`dashboards/templates/jinja/resolver.j2`), damit die Regeln an einer Stelle stehen.
+
 ## [0.4.1] - 2026-11-11
 
 ### Hinzugefügt

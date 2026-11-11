@@ -41,17 +41,39 @@ content: |
 
   {%- macro val(ents, suffixes) -%}{{- val_e(pick(ents, suffixes) | trim) -}}{%- endmacro -%}
 
-  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung. -#}
+  {#- Plausibilität je Einheit. Fängt die 0x8000-Sentinels der Anlage ab
+      (z. B. -3276,8 °C für „nicht verfügbar“), die sonst als Messwert erschienen.
+      Grenzen sind physikalisch großzügig: Heizungswasser bleibt zwischen -60 und 150 °C. -#}
+  {%- macro plausible(f, u) -%}
+    {%- if u == '°C' -%}{{ 1 if -60 <= f <= 150 else 0 }}
+    {%- elif u == '%' -%}{{ 1 if 0 <= f <= 100 else 0 }}
+    {%- elif u == 'bar' -%}{{ 1 if 0 <= f <= 40 else 0 }}
+    {%- else -%}1{%- endif -%}
+  {%- endmacro -%}
+
+  {#- Tabellenzeile, die nur erscheint, wenn die Anlage die Größe überhaupt hat.
+      `exists` ist die Verkettung von has(...)-Aufrufen; leer = Zeile weglassen. -#}
+  {%- macro mrow(label, value, exists) -%}
+  {%- if exists | trim %}{{ '\n' }}| {{ label }} | {{ value }} |{% endif -%}
+  {%- endmacro -%}
+
+  {#- Zahl mit Geräte-Einheit, deutsches Dezimalkomma (7,0 °C). Keine Umrechnung.
+      Unplausible Werte (Sentinels) werden wie fehlende Werte zu „—“ (nicht 0). -#}
   {%- macro num_e(e, prec=1, unit=none) -%}
     {%- if e and has_value(e) -%}
       {%- set u = unit if unit is not none else (state_attr(e, 'unit_of_measurement') or '') -%}
-      {%- if prec > 0 -%}
-        {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
-        {{- (('%.' ~ prec ~ 'f') | format(states(e) | float(0))) | replace('.', ',') -}}
+      {%- set f = states(e) | float(0) -%}
+      {%- if plausible(f, u) | trim != '1' -%}
+        {{- '—' -}}
       {%- else -%}
-        {{- (states(e) | float(0)) | round(0) | int -}}
+        {%- if prec > 0 -%}
+          {#-  "%.1f" | format(x) ist der HA-übliche Weg; der Punkt wird zum Komma.  -#}
+          {{- (('%.' ~ prec ~ 'f') | format(f)) | replace('.', ',') -}}
+        {%- else -%}
+          {{- f | round(0) | int -}}
+        {%- endif -%}
+        {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
       {%- endif -%}
-      {%- if u -%}{{- ('' if u == '%' else ' ') ~ u -}}{%- endif -%}
     {%- else -%}
       {{- '—' -}}
     {%- endif -%}
@@ -59,6 +81,11 @@ content: |
 
   {%- macro num(ents, suffixes, prec=1, unit=none) -%}
     {{- num_e(pick(ents, suffixes) | trim, prec, unit) -}}
+  {%- endmacro -%}
+
+  {#- Zwei Zahlen als „Ist / Soll“ — hält die Kartenzeilen kurz. -#}
+  {%- macro pair(ents, a, b, prec=1) -%}
+    {{- (num(ents, a, prec) | trim) ~ ' / ' ~ (num(ents, b, prec) | trim) -}}
   {%- endmacro -%}
 
   {#- Ganzzahl ohne Dezimalkomma (Starts, Laufzeiten, Fehlernummer). -#}
@@ -197,10 +224,10 @@ content: |
   {% if dev %}
   ## {{ dot(sens, bsens) | trim }} {{ device_attr(dev, 'name_by_user') or device_attr(dev, 'name') or 'Wärmepumpe' }}
 
-  {{ area_name('this.entity_id') or area_name(dev) or '—' }} · **{{ status_text(sens, bsens) | trim }}**{% if device_attr(dev, 'manufacturer') and device_attr(dev, 'model') %} · {{ device_attr(dev, 'manufacturer') }} {{ device_attr(dev, 'model') }}{% endif %}
+  {{ area_name('this.entity_id') or area_name(dev) or '—' }} · **{{ status_text(sens, bsens) | trim }}**{% if device_attr(dev, 'model') and 'esp32' not in (device_attr(dev, 'model') | lower) %} · {{ device_attr(dev, 'manufacturer') or '' }} {{ device_attr(dev, 'model') }}{% endif %}
 
   {% if miss.l %}
-  > **Nicht verfügbar:** {{ miss.l | join(', ') }}. Betroffene Zeilen zeigen „—“ — die Karte bleibt vollständig.
+  > **Nicht verfügbar:** {{ miss.l | join(', ') }}. Diese Zeilen zeigen „—“ — die Karte bleibt vollständig.
   {% endif %}
 
   ### Temperaturen
@@ -209,14 +236,14 @@ content: |
   |---|---|
   | Außen | {{ num(sens, F.aussen, 1) }} |
   | Vorlauf WP | {{ num(sens, F.vorlauf_wp, 1) }} |
-  | Vorlauf gesamt | {{ num(sens, F.vorlauf, 1) }} |
   | Rücklauf | {{ num(sens, F.ruecklauf, 1) }} |
-  | Puffer (Ist / Soll) | {{ num(sens, F.puffer_ist, 1) }} / {{ num(sens, F.puffer_soll, 1) }} |
-  | Heizkreis 1 (Ist / Soll) | {{ num(sens, F.hk1_ist, 1) }} / {{ num(sens, F.hk1_soll, 1) }} |
-  | Raum (Ist / Soll) | {{ num(sens, F.raum_ist, 1) }} / {{ num(sens, F.raum_soll, 1) }} |
-  | Raumfeuchte | {{ num(sens, F.raumfeuchte, 0) }} |
-  | Taupunkt | {{ num(sens, F.taupunkt, 1) }} |
-  | Heizdruck | {{ num(sens, F.heizdruck, 1) }} |
+  {{- mrow('Vorlauf gesamt', num(sens, F.vorlauf, 1), has(sens, F.vorlauf)) }}
+  {{- mrow('Puffer (Ist / Soll)', pair(sens, F.puffer_ist, F.puffer_soll), has(sens, F.puffer_ist) ~ has(sens, F.puffer_soll)) }}
+  {{- mrow('Heizkreis 1 (Ist / Soll)', pair(sens, F.hk1_ist, F.hk1_soll), has(sens, F.hk1_ist) ~ has(sens, F.hk1_soll)) }}
+  {{- mrow('Raum (Ist / Soll)', pair(sens, F.raum_ist, F.raum_soll), has(sens, F.raum_ist) ~ has(sens, F.raum_soll)) }}
+  {{- mrow('Raumfeuchte', num(sens, F.raumfeuchte, 0), has(sens, F.raumfeuchte)) }}
+  {{- mrow('Taupunkt', num(sens, F.taupunkt, 1), has(sens, F.taupunkt)) }}
+  {{- mrow('Heizdruck', num(sens, F.heizdruck, 1), has(sens, F.heizdruck)) }}
 
   ### Warmwasser
 
@@ -224,23 +251,23 @@ content: |
   |---|---|
   | Ist | {{ num(sens, F.ww_ist, 1) }} |
   | Soll (Ist-Wert der Anlage) | {{ num(sens, F.ww_soll, 1) }} |
-  | Komfort-Soll | {{ num(nums + sens, F.ww_komfort, 1) }} |
-  | Eco-Soll | {{ num(nums + sens, F.ww_eco, 1) }} |
-  | Ladepumpe | {{ bin(bsens, F.ww_ladepumpe) }} |
-  | Warmwasserbetrieb | {{ bin(bsens, F.ww_betrieb) }} |
+  {{- mrow('Komfort-Soll', num(nums + sens, F.ww_komfort, 1), has(nums + sens, F.ww_komfort)) }}
+  {{- mrow('Eco-Soll', num(nums + sens, F.ww_eco, 1), has(nums + sens, F.ww_eco)) }}
+  {{- mrow('Ladepumpe', bin(bsens, F.ww_ladepumpe), has(bsens, F.ww_ladepumpe)) }}
+  {{- mrow('Warmwasserbetrieb', bin(bsens, F.ww_betrieb), has(bsens, F.ww_betrieb)) }}
 
   ### Betrieb
 
   | Größe | Wert |
   |---|---|
   | Betriebsart | {{ val(sels, F.betriebsart) }} |
-  | Heizkreis 1 (Climate) | {{ val(clims, F.hk1_climate) }} |
-  | Komfort HK1 | {{ num(nums + sens, F.komfort, 1) }} |
-  | Eco HK1 | {{ num(nums + sens, F.eco, 1) }} |
-  | Heizkurve | {{ num(nums + sens, F.heizkurve, 2) }} |
-  | Bivalenz Heizung | {{ num(nums + sens, F.bivalenz_hzg, 1) }} |
-  | Bivalenz Warmwasser | {{ num(nums + sens, F.bivalenz_ww, 1) }} |
-  | SG Ready | {{ bin(sws, F.sg_ready) }} |
+  {{- mrow('Heizkreis 1 (Climate)', val(clims, F.hk1_climate), has(clims, F.hk1_climate)) }}
+  {{- mrow('Komfort HK1', num(nums + sens, F.komfort, 1), has(nums + sens, F.komfort)) }}
+  {{- mrow('Eco HK1', num(nums + sens, F.eco, 1), has(nums + sens, F.eco)) }}
+  {{- mrow('Heizkurve', num(nums + sens, F.heizkurve, 2), has(nums + sens, F.heizkurve)) }}
+  {{- mrow('Bivalenz Heizung', num(nums + sens, F.bivalenz_hzg, 1), has(nums + sens, F.bivalenz_hzg)) }}
+  {{- mrow('Bivalenz Warmwasser', num(nums + sens, F.bivalenz_ww, 1), has(nums + sens, F.bivalenz_ww)) }}
+  {{- mrow('SG Ready', bin(sws, F.sg_ready), has(sws, F.sg_ready)) }}
 
   ### Energie
 
@@ -265,13 +292,13 @@ content: |
   | Größe | Wert |
   |---|---|
   | Fehlerstatus | {{ bin(bsens, F.fehler) }} |
-  | Aktiver Fehler (Nummer) | {{ ints(sens, F.fehlernr) }} |
   | EVU-Sperre | {{ bin(bsens, F.evu) }} |
-  | Abtauung | {{ bin(bsens, F.abtauung) }} |
-  | Heizbetrieb | {{ bin(bsens, F.heizbetrieb) }} |
-  | Sommerbetrieb | {{ bin(bsens, F.sommerbetrieb) }} |
-  | Kühlbetrieb | {{ bin(bsens, F.kuehlbetrieb) }} |
-  | Not-/Zusatzheizung (NHZ) | {{ bin(bsens, F.nhz) }} |
+  {{- mrow('Aktiver Fehler (Nummer)', ints(sens, F.fehlernr), has(sens, F.fehlernr)) }}
+  {{- mrow('Abtauung', bin(bsens, F.abtauung), has(bsens, F.abtauung)) }}
+  {{- mrow('Heizbetrieb', bin(bsens, F.heizbetrieb), has(bsens, F.heizbetrieb)) }}
+  {{- mrow('Sommerbetrieb', bin(bsens, F.sommerbetrieb), has(bsens, F.sommerbetrieb)) }}
+  {{- mrow('Kühlbetrieb', bin(bsens, F.kuehlbetrieb), has(bsens, F.kuehlbetrieb)) }}
+  {{- mrow('Not-/Zusatzheizung (NHZ)', bin(bsens, F.nhz), has(bsens, F.nhz)) }}
 
   _Störungen werden nur in der Servicewelt des Geräts quittiert — dieses Dashboard zeigt sie an und schaltet nichts._
 
