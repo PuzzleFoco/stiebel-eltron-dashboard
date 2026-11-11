@@ -605,7 +605,7 @@ YAML-Quelle) gegen die **echte** Geräteregistry — nicht gegen eine Attrappe.
 | Lüftung ausgeschlossen | ✅ | „Lüftung“ (LWZ): nur 1 Signaturtreffer + eigener Anker → keine Wärmepumpe |
 | Strategie erzeugt Views | ✅ | 3 Views (Übersicht, Geräte, Bedienung), Abschnittstyp `sections` |
 | Eine Karte je Anlage | ✅ | Übersicht 1 Gerätekarte, Geräte 1 Detailkarte, keine `this.entity_id`-Reste |
-| Konkrete Karten statt auto-entities | ✅ | 0 `custom:auto-entities` im Ergebnis; Bedienung: 5 Tile-Karten + 2 Hinweise |
+| Konkrete Karten statt auto-entities | ✅ | 0 `custom:auto-entities` im Ergebnis; Bedienung: 6 Tile-Karten + 2 Hinweise |
 | Karten rendern live | ✅ | 6/6 Markdown-Karten ohne Template-Fehler |
 | Werte exakt | ✅ | Außen 5,5 °C · Vorlauf WP 23,9 °C · Rücklauf 21,6 °C · Warmwasser 43,6/48,0 °C · Modus Komfort · Verdichter läuft · Starts 4921 |
 | Einheiten/Dezimalkomma | ✅ | „5,5 °C“, „2,0 bar“, „0,35“ (Heizkurve), „48,0“ ohne Einheit bei number-Entitäten |
