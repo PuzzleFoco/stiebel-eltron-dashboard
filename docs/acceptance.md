@@ -612,7 +612,8 @@ YAML-Quelle) gegen die **echte** Geräteregistry — nicht gegen eine Attrappe.
 | Sentinels gefiltert | ✅ | Gerät liefert `taupunkttemp = -3276,8 °C` und `aussentemp_sommerbetrieb = 32768 °C`; Karte zeigt „—“ statt Fantasiewerten |
 | Zeilen ohne Entität | ✅ | Detailkarte blendet Puffersoll, SG Ready, Abtauung, Heizbetrieb, Warmwasserbetrieb aus (vorher 16 × „—“) |
 | „—“ nur bei echter Lücke | ✅ | Raumtemperatur/-feuchte `unknown` → „—“, bleibt sichtbar |
-| Bundle im Betrieb | ✅ | `/local/community/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=stiebel-v042`, HTTP 200, 60.909 Byte, SHA256 `3bbf07f5…b1f07` = Repository-Datei |
+| HACS-Installation v0.4.2 | ✅ | `ha_manage_hacs download` → „Successfully installed … version v0.4.2“, Status `installed`, `installed_version` = `available_version` = `v0.4.2` |
+| Bundle im Betrieb | ✅ | `/local/community/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=1454042567-v0.4.2` **und** `/hacsfiles/…`: HTTP 200, 60.909 Byte, SHA256 `3bbf07f5…b1f07` = Repository-Datei |
 | Dashboard nutzt Strategie | ✅ | `stiebel-eltron`: `strategy_dashboard: true`, Konfiguration 60 Byte statt 47.649 Byte |
 | YAML-Fallback vorhanden | ✅ | `stiebel-eltron-yaml` (ausgeblendet), 3 Views, alle `render_paths.stable` |
 | Repository-Checks | ✅ | `validate.py`, `sync_jinja.py --check`, `sync_dist.py --check`, `build_strategy.py --check`, `test_strategy.mjs` 16/16, `test_macros.py` 16/16 |
