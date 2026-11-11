@@ -160,6 +160,16 @@ Browser sichtbar) und das Verhalten ohne Stiebel-Eltron-Anbindung (der
 Platzhalter enthält bewusst keine Entitäten).
 
 
+## Namenskopplung (wichtig beim Anlegen des GitHub-Repositories)
+
+HACS installiert nach `config/www/community/<repository-name>`. Der Name des
+GitHub-Repositories muss deshalb **`stiebel-eltron-dashboard`** lauten – sonst
+passt der `filename`-Pfad in der README-Einbindung nicht mehr und die
+Installationsanleitung ist falsch.
+
+Der `.js`-Einstiegspunkt ist davon entkoppelt: `hacs.json → filename` erzwingt
+unabhängig vom Repo-Namen die Datei `dist/stiebel-eltron-dashboard.js`.
+
 ## GitHub-Repository-Einstellungen (einmalig, nicht im Repo)
 
 Die HACS-Action prüft Metadaten des GitHub-Repositories, die sich nicht
