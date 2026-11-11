@@ -209,22 +209,41 @@ def check_dashboard_yaml(path: Path) -> None:
 
 
 def check_dist_sync() -> None:
-    """dist/ muss byte-genau aus dashboards/ erzeugt sein."""
-    sources = sorted(DASHBOARD_SOURCE_DIR.glob("*.yaml"))
+    """dist/ muss byte-genau aus dashboards/ erzeugt sein (rekursiv)."""
+    sources = sorted(
+        path
+        for path in DASHBOARD_SOURCE_DIR.rglob("*")
+        if path.is_file() and path.suffix in {".yaml", ".yml"}
+    )
     if not sources:
         fail("dashboards/: keine Dashboard-YAML gefunden")
         return
 
     for source in sources:
-        target = DIST_DIR / source.name
+        relative = source.relative_to(DASHBOARD_SOURCE_DIR)
+        target = DIST_DIR / relative
         if not target.is_file():
-            fail(f"dist/{source.name} fehlt (python scripts/sync_dist.py ausführen)")
+            fail(f"dist/{relative} fehlt (python scripts/sync_dist.py ausführen)")
         elif target.read_bytes() != source.read_bytes():
-            fail(f"dist/{source.name} weicht von dashboards/{source.name} ab (sync_dist.py ausführen)")
+            fail(f"dist/{relative} weicht von dashboards/{relative} ab (sync_dist.py ausführen)")
 
-    for target in sorted(DIST_DIR.glob("*.yaml")):
-        if not (DASHBOARD_SOURCE_DIR / target.name).is_file():
-            fail(f"dist/{target.name} hat keine Quelle in dashboards/")
+    for target in sorted(DIST_DIR.rglob("*")):
+        if not target.is_file() or target.suffix not in {".yaml", ".yml"}:
+            continue
+        relative = target.relative_to(DIST_DIR)
+        if not (DASHBOARD_SOURCE_DIR / relative).is_file():
+            fail(f"dist/{relative} hat keine Quelle in dashboards/")
+
+
+def check_yaml_parses(path: Path) -> None:
+    """Nur Syntax prüfen (für Bruchstücke/Includes, die kein Dashboard sind)."""
+    label = path.relative_to(ROOT)
+    try:
+        yaml.load(path.read_text(encoding="utf-8"), Loader=HADashboardLoader)
+    except yaml.YAMLError as exception:
+        fail(f"{label}: YAML nicht parsebar: {exception}")
+        return
+    print(f"OK: {label} (Syntax)")
 
 
 def check_required_files() -> None:
@@ -239,8 +258,14 @@ def main() -> int:
     if data:
         check_hacs_structure(data)
 
-    for source in sorted(DASHBOARD_SOURCE_DIR.glob("*.yaml")):
-        check_dashboard_yaml(source)
+    for source in sorted(DASHBOARD_SOURCE_DIR.rglob("*")):
+        if not source.is_file() or source.suffix not in {".yaml", ".yml"}:
+            continue
+        if source.parent == DASHBOARD_SOURCE_DIR:
+            check_dashboard_yaml(source)
+        else:
+            # Bruchstücke für !include & Co.: nur Syntax prüfen
+            check_yaml_parses(source)
 
     check_dist_sync()
     check_required_files()

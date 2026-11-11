@@ -24,12 +24,16 @@ TARGET_DIR = ROOT / "dist"
 
 
 def source_files() -> list[Path]:
-    """Alle YAML-Dashboards, die ausgeliefert werden."""
-    return sorted(SOURCE_DIR.glob("*.yaml"))
+    """Alle YAML-Dateien, die ausgeliefert werden (auch Unterordner für Includes)."""
+    return sorted(
+        path
+        for path in SOURCE_DIR.rglob("*")
+        if path.is_file() and path.suffix in {".yaml", ".yml"}
+    )
 
 
 def sync(check: bool) -> int:
-    """Spiegelt dashboards/*.yaml nach dist/ und meldet Abweichungen."""
+    """Spiegelt dashboards/ rekursiv nach dist/ und meldet Abweichungen."""
     if not SOURCE_DIR.is_dir():
         print(f"FEHLER: Quellordner fehlt: {SOURCE_DIR}")
         return 1
@@ -43,21 +47,25 @@ def sync(check: bool) -> int:
     changed: list[str] = []
 
     for source in files:
-        target = TARGET_DIR / source.name
+        relative = source.relative_to(SOURCE_DIR)
+        target = TARGET_DIR / relative
         if target.is_file() and filecmp.cmp(source, target, shallow=False):
             continue
-        changed.append(source.name)
+        changed.append(str(relative))
         if check:
-            problems.append(f"dist/{source.name} ist nicht aktuell (Quelle: dashboards/{source.name})")
+            problems.append(f"dist/{relative} ist nicht aktuell (Quelle: dashboards/{relative})")
         else:
-            TARGET_DIR.mkdir(parents=True, exist_ok=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-            print(f"aktualisiert: dist/{source.name}")
+            print(f"aktualisiert: dist/{relative}")
 
     # Verwaiste YAML-Dateien in dist/ (Quelle gelöscht/umbenannt?)
-    for target in sorted(TARGET_DIR.glob("*.yaml")):
-        if not (SOURCE_DIR / target.name).is_file():
-            problems.append(f"dist/{target.name} hat keine Quelle in dashboards/ (bitte löschen)")
+    for target in sorted(TARGET_DIR.rglob("*")):
+        if not target.is_file() or target.suffix not in {".yaml", ".yml"}:
+            continue
+        relative = target.relative_to(TARGET_DIR)
+        if not (SOURCE_DIR / relative).is_file():
+            problems.append(f"dist/{relative} hat keine Quelle in dashboards/ (bitte löschen)")
 
     if check:
         if problems:

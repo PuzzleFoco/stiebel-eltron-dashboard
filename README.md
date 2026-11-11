@@ -59,7 +59,7 @@ derselben Stelle. Eigene Anpassungen gehören deshalb **nicht** in
 | `dashboards/stiebel_eltron.yaml` | Quelle des Dashboards (hier wird entwickelt) |
 | `dist/` | Auslieferung an HACS: Dashboard-YAML + `.js`-Einstiegspunkt |
 | `hacs.json` | HACS-Metadaten (Name, Mindest-HA-Version, Einstiegspunkt) |
-| `scripts/` | `sync_dist.py`, `validate.py`, `build_release.py` |
+| `scripts/` | `sync_dist.py`, `validate.py`, `check_ha_parse.py`, `build_release.py` |
 | `docs/architecture.md` | Entscheidungen: HACS-Kategorie, Layout, Release-Weg |
 | `.github/workflows/` | Validierung (push/PR) und Release (Tag `vX.Y.Z`) |
 

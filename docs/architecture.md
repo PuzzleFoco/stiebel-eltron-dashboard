@@ -56,8 +56,9 @@ Strukturprüfung und als Herkunftsmarker.
 HACS liefert nur den Inhalt von `dist/` aus. Gleichzeitig soll das Dashboard
 lesbar und versioniert an einer normalen Stelle liegen.
 
-- **Quelle:** `dashboards/stiebel_eltron.yaml`
-- **Auslieferung:** `dist/stiebel_eltron.yaml` (byte-genau gespiegelt)
+- **Quelle:** `dashboards/stiebel_eltron.yaml` (Unterordner wie
+  `dashboards/templates/` werden mit ausgeliefert – für `!include`-Bruchstücke)
+- **Auslieferung:** `dist/` (byte-genau gespiegelte Ordnerstruktur)
 - **Werkzeug:** `python scripts/sync_dist.py` (schreiben), `--check` (CI)
 - **Absicherung:** `scripts/validate.py` und der Workflow schlagen fehl, wenn
   `dist/` von `dashboards/` abweicht. Damit kann kein veraltetes Artefakt
