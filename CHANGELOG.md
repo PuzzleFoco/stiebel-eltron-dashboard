@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an diesem Repository.
 Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.4.1] - 2026-11-11
+
+### Hinzugefügt
+
+- Die Strategie registriert sich über `window.customStrategies` (Home Assistant ab 2026.5).
+  Dadurch erscheint **Stiebel Eltron** im Dialog *Dashboard hinzufügen* unter
+  **Community dashboards** – ganz ohne Raw-Konfiguration.
+- README beschreibt diesen Weg als Schritt 2; der Raw-Editor bleibt als Fallback dokumentiert.
+
 ## [0.4.0] - 2026-11-11
 
 ### Hinzugefügt

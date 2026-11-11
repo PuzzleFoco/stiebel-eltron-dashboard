@@ -8,7 +8,7 @@ YAML-Änderung.
 
 [![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PuzzleFoco&repository=stiebel-eltron-dashboard&category=plugin)
 
-> **Status: v0.4.0** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
+> **Status: v0.4.1** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
 > Label, Integration oder Signatur · fehlende Werte werden sichtbar zu „—“ statt zu 0.
 >
 > **HACS-Variante:** eine einzige JavaScript-Datei, keine Zusatzkarte, kein
@@ -36,7 +36,7 @@ Status-Ampel in jeder Karte:
 | | **Weg A – HACS + Strategie** | **Weg B – YAML-Dateien** |
 |---|---|---|
 | Installation | HACS-Kategorie **Dashboard**, eine JS-Datei | Release-ZIP nach `config/www/community/…` kopieren |
-| Dashboard anlegen | 2 Zeilen Raw-Konfiguration (`strategy:`) | `lovelace:`-Block in `configuration.yaml` |
+| Dashboard anlegen | **Community dashboards → Stiebel Eltron** | `lovelace:`-Block in `configuration.yaml` |
 | Zusatzkarte | **keine** | `auto-entities` nötig |
 | Neustart | nein | ja (YAML-Dashboard) |
 | Empfohlen für | alle, die es einfach wollen | YAML-Modus-Fans und eigene Anpassungen |
@@ -72,8 +72,16 @@ neu hinzufügen.
 
 ### 2. Dashboard mit der Strategie anlegen
 
-1. **Einstellungen → Dashboards → Dashboard hinzufügen** → *Neues Dashboard von Grund auf*.
-   Titel **Stiebel Eltron**, URL **`stiebel-eltron`** (der Bindestrich ist Pflicht).
+1. **Einstellungen → Dashboards → Dashboard hinzufügen**.
+2. **Community dashboards** → **Stiebel Eltron** wählen. Der Eintrag kommt von der Strategie
+   (Home Assistant ab 2026.5).
+3. Titel **Stiebel Eltron**, URL **`stiebel-eltron`** (der Bindestrich ist Pflicht), speichern.
+
+Fertig – die Strategie erzeugt die drei Views.
+
+**Ältere Home-Assistant-Version oder kein Eintrag sichtbar?** Dann von Hand:
+
+1. *Neues Dashboard von Grund auf* anlegen (Titel/URL wie oben).
 2. Dashboard öffnen → **Stift** (Bearbeiten) → **⋮ → Raw-Konfigurationseditor**.
 3. Den vorhandenen Inhalt durch diese zwei Zeilen ersetzen:
 

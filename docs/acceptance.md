@@ -14,6 +14,11 @@ Live-Abfragen gegen das Produktivsystem.
 **Abnahmeregel:** Jede Checkbox ist abgehakt **oder** verweist auf ein offenes Issue mit
 Reproduktionsschritten (Abschnitt [Offene Issues](#offene-issues)).
 
+> **Nachtrag v0.4.0 (unten):** Die folgenden Tabellenzeilen beschreiben den Stand v0.2.1.
+> Inzwischen wurden Repository, Label und Live-Werte geprüft und die HACS-Auslieferung auf eine
+> Lovelace-Strategie umgestellt. Aktuelle Ergebnisse stehen im Abschnitt
+> [Nachtrag v0.4.0](#nachtrag-v040-2026-11-11).
+
 ## Ergebnis auf einen Blick
 
 | ID | Prüfpunkt | Ergebnis |
@@ -511,3 +516,65 @@ einer vorwissensfreien Person gemessen.
   nicht ausgeführt (O-05).
 - **Live nur ein Gerät:** Mehrgeräteverhalten ist über die HA-Template-Engine mit zwei
   simulierten Anlagen belegt (65 Prüfungen), nicht physisch (O-04).
+
+---
+
+## Nachtrag v0.4.0 (2026-11-11)
+
+**Umgebung:** Home Assistant 2026.11.1 (Marketplace statt HACS), deutsch, Produktivsystem.
+**Repository:** <https://github.com/PuzzleFoco/stiebel-eltron-dashboard>, Release **v0.4.0**.
+
+### Live geprüft
+
+| Prüfpunkt | Ergebnis | Beleg |
+|---|---|---|
+| Öffentliches Repository | ✅ | `gh repo view` → `PUBLIC`, Description + 6 Topics gesetzt |
+| Release und Asset | ✅ | v0.4.0, genau ein Asset: `stiebel-eltron-dashboard.js` |
+| HACS-/Marketplace-Installation | ✅ | `ha_manage_hacs download` → „Successfully installed … version v0.4.0“ |
+| Ressource registriert | ✅ | `/local/community/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=1454042567-v0.4.0` |
+| Datei ausgeliefert | ✅ | HTTP 200, 55.586 Byte, SHA256 `6b9b7303…db734` identisch mit dem Release-Asset |
+| Label und Gerät | ✅ | Label `stiebel_eltron` an „ESP32-PoE Technik“ (121 Entitäten) |
+| Live-Werte | ✅ | Außen 5,5 °C · Vorlauf 25,8 °C · Rücklauf 23,0 °C · Warmwasser 43,6/48,0 °C · Modus Komfort · Verdichter läuft |
+| Dashboard im Produktivsystem | ✅ | Storage-Dashboard `stiebel-eltron`, 3 Views, `post_write_verified`, alle `render_paths.stable` |
+| Zusammenfassung | ✅ | „1 Anlage erkannt · 1 Karte · 1 mit Außentemperatur-Anker“ |
+| Strategie-Abnahme | ✅ | `node scripts/test_strategy.mjs`: 16/16 (zwei Anlagen, `_2`-Suffix, HTTP-Ausschluss, keine auto-entities-Reste) |
+| YAML-Variante | ✅ | `render_test.py` 65/65, HA-Loader 2026.2.3 |
+
+### Befund: YAML-Variante ist in HA 2026.11 nicht über HACS installierbar
+
+Der erste HACS-Versuch mit der YAML-Auslieferung (v0.3.0) scheiterte mit
+„The installed content has no stiebel-eltron-dashboard.js“. Ursache ist die
+Marketplace-Implementierung `homeassistant/components/marketplace/repositories/plugin.py`:
+Die Kategorie Dashboard sammelt nur `.js`-Dateien aus dem Repository-Root bzw. `dist/` ein.
+YAML-Dateien und `includes/`-Unterordner werden nicht kopiert; ein `.js`-Eintrag im
+`dist/`-Ordner wird durch den Filter `filename.startswith("dist")` sogar übersprungen.
+Die ursprüngliche Annahme aus `docs/architecture.md` (Entscheidung 1) gilt damit für
+Home Assistant ab 2026.11 nicht mehr.
+
+**Konsequenz:** v0.4.0 liefert eine Lovelace-Strategie als einzelne JS-Datei aus
+(`strategy: custom:stiebel-eltron`). Die YAML-Dateien bleiben als manuelle Variante (Weg B)
+erhalten und sind weiterhin vollständig getestet.
+
+### Abweichungen und Hinweise
+
+- Der Agent hat die **Erststart-Warnung des Marketplaces** für den verbundenen Benutzer
+  akzeptiert, um die Installation testen zu können. Laut HA-Dokumentation ist das eine
+  Benutzerentscheidung; der Haken ist gesetzt und in den Marketplace-Einstellungen einsehbar.
+- **Kein visueller Screenshot:** Die HA-Oberfläche verlangt eine Anmeldung; es liegen keine
+  Zugangsdaten vor. Geprüft wurden Struktur (`post_write_verified`, stabile Render-Pfade),
+  Template-Ausgabe mit echten Werten und die ausgelieferte Datei (HTTP 200, SHA256).
+  Die Screenshot-Platzhalter in der README bleiben bewusst leer.
+- **HACS-Strategie noch nicht im Browser gerendert:** Das JavaScript wurde in Node mit einer
+  simulierten Geräteregistry ausgeführt (16/16). Das visuelle Ergebnis im HA-Frontend ist
+  damit nicht belegt.
+
+### Status der alten Issues
+
+| Issue | Status |
+|---|---|
+| O-01 öffentliches Repository | ✅ erledigt (`PuzzleFoco/stiebel-eltron-dashboard`) |
+| O-02 Label fehlt | ✅ erledigt (Label am Gerät gesetzt) |
+| O-03 Live-Werte | ✅ erledigt (Gateway wieder online, Werte oben) |
+| O-04 zweite physische Anlage | ⬜ offen (weiterhin simuliert) |
+| O-05 Neustart-Persistenz | ⬜ offen (kein Neustart durchgeführt) |
+| O-06 10-Minuten-Ziel | ⬜ offen (nicht mit Testperson gemessen) |

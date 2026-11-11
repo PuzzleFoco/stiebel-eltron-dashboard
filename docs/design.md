@@ -7,6 +7,11 @@ Dieses Dokument ist die verbindliche Vorlage für die Implementierung (t_093e7b2
 Konventionen, Erkennung, Resolver, Seitenaufbau, Karten, Abhängigkeiten, Dateistruktur und die
 Grenzen, die Lovelace selbst setzt. Wo eine Aussage nicht belegt ist, steht sie unter „Offene Punkte“.
 
+> **Nachtrag v0.4.0:** Dieses Design beschreibt die YAML-Quelle und die YAML-Variante (Weg B).
+> Für die HACS-Auslieferung baut `scripts/build_strategy.py` daraus eine Lovelace-Strategie, die
+> die `auto-entities`-Karten zur Laufzeit je Gerät auflöst. Die Aussage „auto-entities ist
+> Pflicht“ gilt damit nur noch für Weg B; siehe `docs/architecture.md`, Entscheidung 0.
+
 ---
 
 ## 0. Kurzfassung — die sechs Entscheidungen

@@ -162,6 +162,23 @@ class StiebelEltronDashboardStrategy extends HTMLElement {
 
 customElements.define(STRATEGY_TAG, StiebelEltronDashboardStrategy);
 
+// Seit Home Assistant 2026.5 lässt sich eine Strategie im Dialog
+// "Dashboard hinzufügen" unter "Community dashboards" anbieten.
+globalThis.customStrategies = globalThis.customStrategies || [];
+if (
+  !globalThis.customStrategies.some(
+    (entry) => entry && entry.type === "stiebel-eltron" && entry.strategyType === "dashboard"
+  )
+) {
+  globalThis.customStrategies.push({
+    type: "stiebel-eltron",
+    strategyType: "dashboard",
+    name: "Stiebel Eltron",
+    description: "Wärmepumpen-Dashboard für eine oder mehrere Stiebel-Eltron-Anlagen",
+    documentationURL: "https://github.com/PuzzleFoco/stiebel-eltron-dashboard",
+  });
+}
+
 globalThis.__stiebelEltronDashboard = {
   strategy: STRATEGY_TAG,
   viewCount: Array.isArray(DASHBOARD_CONFIG.views) ? DASHBOARD_CONFIG.views.length : 0,

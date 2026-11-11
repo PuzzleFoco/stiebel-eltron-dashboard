@@ -81,6 +81,13 @@ vm.runInThisContext(fs.readFileSync(bundle, "utf8"), { filename: bundle });
 
 const Strategy = globalThis.__strategies?.["ll-strategy-dashboard-stiebel-eltron"];
 check(Boolean(Strategy), "Strategie ll-strategy-dashboard-stiebel-eltron registriert");
+check(
+  Array.isArray(globalThis.customStrategies) &&
+    globalThis.customStrategies.some(
+      (entry) => entry.type === "stiebel-eltron" && entry.strategyType === "dashboard"
+    ),
+  "Strategie ist für den Dialog 'Community dashboards' registriert"
+);
 check(globalThis.__stiebelEltronDashboard?.viewCount === 3, "drei Views im Bundle");
 
 const config = await Strategy.generate({}, hass);
