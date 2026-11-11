@@ -36,6 +36,9 @@ jobs:
       - name: Strategie-Abnahmetest (zwei simulierte Anlagen)
         run: node scripts/test_strategy.mjs
 
+      - name: Jinja-Makros (Sentinel, Degradation, Tabellenzeilen)
+        run: python scripts/test_macros.py
+
       - name: Repository-Gerüst validieren
         run: python scripts/validate.py
 

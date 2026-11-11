@@ -615,7 +615,7 @@ YAML-Quelle) gegen die **echte** Geräteregistry — nicht gegen eine Attrappe.
 | Bundle im Betrieb | ✅ | `/local/community/stiebel-eltron-dashboard/stiebel-eltron-dashboard.js?v=stiebel-v042`, HTTP 200, 60.909 Byte, SHA256 `3bbf07f5…b1f07` = Repository-Datei |
 | Dashboard nutzt Strategie | ✅ | `stiebel-eltron`: `strategy_dashboard: true`, Konfiguration 60 Byte statt 47.649 Byte |
 | YAML-Fallback vorhanden | ✅ | `stiebel-eltron-yaml` (ausgeblendet), 3 Views, alle `render_paths.stable` |
-| Repository-Checks | ✅ | `validate.py`, `sync_jinja.py --check`, `sync_dist.py --check`, `build_strategy.py --check`, `test_strategy.mjs` 16/16 |
+| Repository-Checks | ✅ | `validate.py`, `sync_jinja.py --check`, `sync_dist.py --check`, `build_strategy.py --check`, `test_strategy.mjs` 16/16, `test_macros.py` 16/16 |
 | HA-Abnahmetest | ✅ | `uv run --with homeassistant python scripts/render_test.py` → 65/65 (echte HA-`TemplateEnvironment`) |
 | CI | ✅ | Validate + Release für v0.4.1 grün (v0.4.2 nach dem Push geprüft) |
 

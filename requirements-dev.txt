@@ -1,3 +1,4 @@
 # Nur für lokale Prüfung und CI. Keine Laufzeitabhängigkeit.
 PyYAML==6.0.2
+jinja2==3.1.6
 yamllint==1.35.1

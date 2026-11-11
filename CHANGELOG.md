@@ -26,6 +26,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 
 - Detailkarte: neue Jinja-Makros `plausible()` und `mrow()` im Resolver-Vertrag
+
+### Tests
+
+- `scripts/test_macros.py`: 16 Prüfungen der Jinja-Makros ohne Home-Assistant-Installation
+  (Sentinels, „—“-Degradation, Tabellenzeilen, `_2`-Suffix); läuft in der CI im Job
+  *Repo-/YAML-Checks*.
   (`dashboards/templates/jinja/resolver.j2`), damit die Regeln an einer Stelle stehen.
 
 ## [0.4.1] - 2026-11-11
