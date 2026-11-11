@@ -4,6 +4,21 @@ Alle nennenswerten Änderungen an diesem Repository.
 Format: [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
+## [0.3.0] - 2026-11-11
+
+### Hinzugefügt
+
+- **Ein-Klick-Einstieg in HACS** über den offiziellen `my.home-assistant.io`-Button in der README
+  (Kategorie `plugin`, also im HACS-UI **Dashboard**).
+- README nennt jetzt die echte Repository-URL `PuzzleFoco/stiebel-eltron-dashboard` statt eines
+  `<OWNER>`-Platzhalters.
+
+### Geändert
+
+- `docs/research-integration.md`: private LAN-Adressen durch Platzhalter (`<gateway-ip>`,
+  `<ha-host-ip>`, `<vent-ip>`, `<isg-ip>`) ersetzt, damit die Dokumentation öffentlich
+  veröffentlicht werden kann.
+
 ## [0.2.1] - 2026-11-11
 
 ### Hinzugefügt

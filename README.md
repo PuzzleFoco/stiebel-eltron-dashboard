@@ -6,7 +6,9 @@ Ein Lovelace-Dashboard für Stiebel-Eltron-Wärmepumpen – für **eine oder meh
 selben Home Assistant. Installation über HACS, danach ohne YAML-Arbeit: ein zweites Gerät
 erscheint automatisch als zweiter Block.
 
-> **Status: v0.2.1** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PuzzleFoco&repository=stiebel-eltron-dashboard&category=plugin)
+
+> **Status: v0.3.0** · Drei Views (Übersicht, Geräte, Bedienung) · Geräteerkennung über
 > Label, Integration oder Signatur · fehlende Werte werden sichtbar zu „—“ statt zu 0.
 >
 > **Pflicht-Baustein:** die HACS-Karte **`auto-entities`** (`custom:auto-entities`).
@@ -78,9 +80,7 @@ Repository eingetragen:
 
 1. **HACS** öffnen.
 2. Oben rechts auf die **drei Punkte (⋮)** → **Benutzerdefinierte Repositories**.
-3. Repository-URL eintragen: `https://github.com/<OWNER>/stiebel-eltron-dashboard`
-   (`<OWNER>` = GitHub-Konto, unter dem das Repository liegt; die vollständige URL steht in der
-   Bezugsquelle).
+3. Repository-URL eintragen: `https://github.com/PuzzleFoco/stiebel-eltron-dashboard`
 4. Als Typ **Dashboard** wählen – **nicht** *Integration*.
 5. **Hinzufügen**, das neue Repository öffnen und **Herunterladen**.
 

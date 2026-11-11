@@ -34,10 +34,10 @@ Ohne ISG gibt es **keine** Herstellerschnittstelle. Die CAN-Bus-Protokolle (Elst
 |---|---|
 | Anlage | Tecalor **TTL 7,6 ACS** (= Stiebel WPL-A 07) + **THM eco**, Regler **WPM4** |
 | ISG | **nicht vorhanden** |
-| Gateway | ESP32-PoE (192.168.1.140), ESPHome `kr0ner/OneESP32ToRuleThemAll`, Paket `wpl_a07.yaml` |
-| HA | 2026.11.1, Sprache **de**, Host 192.168.1.231 |
+| Gateway | ESP32-PoE (`<gateway-ip>`), ESPHome `kr0ner/OneESP32ToRuleThemAll`, Paket `wpl_a07.yaml` |
+| HA | 2026.11.1, Sprache **de**, Host `<ha-host-ip>` |
 | Entitäten | ~90 Sensoren/Binärsensoren/Numbers/Selects unter `sensor.esp32_poe_technik_*`, `sensor.heatingpump_*`, `binary_sensor.esp32_poe_technik_*` |
-| Lüftung | **eigener Bus** (LWZ 180/280, ESP32 192.168.1.173), nicht Teil des WPM-CAN |
+| Lüftung | **eigener Bus** (LWZ 180/280, ESP32 `<vent-ip>`), nicht Teil des WPM-CAN |
 | Bekannte Einschränkung | Wärmemengenzähler liefern unplausible Werte (COP ≈ 39 rechnerisch) — für COP-Karten **nicht** ungeprüft verwenden |
 
 Der WPM4 dokumentiert das ISG ausdrücklich: „Schließen Sie das Internet Service Gateway an eine der Klemmen **CAN B** (ohne „+“) an“ (Tecalor WPM 4, Inbetriebnahme, Kap. 4.4). Ein ISG wäre also technisch nachrüstbar — auch **parallel** zum vorhandenen ESP32, weil beide an CAN B als weitere Busteilnehmer hängen. Buslast und Adressvergabe sind damit aber nicht erprobt (offener Punkt, § 11).
@@ -194,7 +194,7 @@ Für Anlagen mit ISG, aber ohne HACS-Integration (oder für Register, die die HA
 modbus:
   - name: isg
     type: tcp
-    host: 192.168.1.50
+    host: <isg-ip>
     port: 502
     delay: 0
     timeout: 5
