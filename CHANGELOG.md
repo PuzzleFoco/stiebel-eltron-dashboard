@@ -6,6 +6,12 @@ Versionierung: [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+
+- Design für das Mehrgeräte-Dashboard (`docs/design.md`): Geräte-Discovery über Label,
+  Integration und Signatur, Entity-Resolver, drei Views, Karten-/Dateistruktur und
+  Degradationsregeln.
+
 ## [0.1.0] - 2026-11-11
 
 ### Hinzugefügt

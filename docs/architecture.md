@@ -188,7 +188,7 @@ erwartungsgemäß fehl (Checks `description`, `topics`, `images`).
 ## Abgrenzung / offene Punkte
 
 - Dashboard-Inhalt, Mehrgeräte-Erkennung und Entity-Konventionen sind **nicht**
-  Teil dieses Gerüsts (siehe `docs/design.md` der Implementierungs-Task).
+  Teil dieses Gerüsts (siehe [design.md](design.md)).
 - Kein HACS-Default-Repository: dafür ist ein PR im Store-Repository nötig und
   erst sinnvoll, wenn das Dashboard Inhalt hat.
 - Screenshot für README/HACS-Store fehlt bewusst noch (kein Fake-Bild); wird
