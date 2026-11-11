@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build-Ausgabe (wird im Release-Workflow erzeugt)
+release/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

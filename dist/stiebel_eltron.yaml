@@ -1,0 +1,25 @@
+# Stiebel Eltron Dashboard – Platzhalter
+#
+# Dieses Datei ist das ausgelieferte Dashboard-Artefakt (HACS: dist/).
+# Quelle ist dashboards/stiebel_eltron.yaml; dist/ wird daraus erzeugt:
+#   python scripts/sync_dist.py
+#
+# Der Platzhalter enthält bewusst nur HA-Bordmittel (Markdown-Karte) und
+# keine Entity-Referenzen, damit er in jeder Home-Assistant-Instanz ohne
+# Fehler lädt – auch ohne Stiebel-Eltron-Anbindung.
+title: Stiebel Eltron
+views:
+  - title: Übersicht
+    path: uebersicht
+    icon: mdi:heat-pump
+    cards:
+      - type: markdown
+        content: |
+          ## Stiebel Eltron Dashboard
+
+          Dieses Dashboard ist noch ein **Platzhalter**.
+          Die Geräte- und Kennzahlen-Karten folgen in einem der nächsten
+          Releases dieses Repositories.
+
+          **Installation geprüft?** Wenn du diese Karte siehst, ist das
+          YAML-Dashboard korrekt in Home Assistant eingebunden.

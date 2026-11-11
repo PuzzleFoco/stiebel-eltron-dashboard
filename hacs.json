@@ -1,0 +1,6 @@
+{
+  "name": "Stiebel Eltron Dashboard",
+  "render_readme": true,
+  "homeassistant": "2024.10.0",
+  "filename": "stiebel-eltron-dashboard.js"
+}
